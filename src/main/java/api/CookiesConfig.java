@@ -1,4 +1,4 @@
-package services;
+package api;
 
 import org.openqa.selenium.By;
 import org.openqa.selenium.Cookie;
@@ -16,6 +16,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static app.Constants.*;
+
 public class CookiesConfig {
 
     private static final String URL = "https://wms.business.accounts.shopee.com/authenticate/login?lang=en&client_id=19&next=https%3A%2F%2Fwms.ssc.shopee.vn%2Fv2%2Ftob%2Fcallback&google_login_redirect=https%3A%2F%2Fwms.ssc.shopee.vn%2Fv2%2Fgoogle%2Flogin";
@@ -28,45 +30,54 @@ public class CookiesConfig {
     private static final String VNDB = "//span[text()='VN - VNDB']";
     private static final String VNDL = "//span[text()='VN - VNDL']";
 
-    private static final String COOKIES_DIR = System.getProperty("user.dir") + File.separator + "cookies-store";
-
-    public static Map<String, String> loadCookies(String userName, String password, String warehouse) {
+    public static boolean isCookiesValid(String userName, String warehouse) {
         try {
             File directory = new File(COOKIES_DIR);
-            String fileName = userName.replace("@", "_").toUpperCase()
-                    + "_" + warehouse + ".json";
+            String fileName = userName + "_" + warehouse + ".json";
             File cookiesFile = new File(directory, fileName);
 
             if (!cookiesFile.exists()) {
-                System.out.println("Cookies not found! Generating new cookies...");
-                loginToSystem(userName, password);
-                return loadCookies(userName, password, warehouse);
+                System.out.println("Cookies not found!");
+                return false;
+
+            } else {
+                ObjectMapper mapper = new ObjectMapper();
+                Map<String, Object> data = mapper.readValue(cookiesFile, Map.class);
+                long createdTime = ((Number) data.get("createdTime")).longValue();
+
+                if ((System.currentTimeMillis() - createdTime) > (72 * 60 * 60 * 1000L)) {
+                    System.out.println("Cookies expired!");
+                    return false;
+
+                } else {
+                    return true;
+                }
             }
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to validate cookies!", e);
+        }
+    }
+
+    public static Map<String, String> loadCookies(String userName, String warehouse) {
+        try {
+            File directory = new File(COOKIES_DIR);
+            String fileName = userName + "_" + warehouse + ".json";
+            File cookiesFile = new File(directory, fileName);
 
             ObjectMapper mapper = new ObjectMapper();
             Map<String, Object> data = mapper.readValue(cookiesFile, Map.class);
-            long createdTime = ((Number) data.get("createdTime")).longValue();
 
-            if ((System.currentTimeMillis() - createdTime) < (72 * 60 * 60 * 1000L)) {
-                @SuppressWarnings("unchecked")
-                List<Map<String, Object>> cookies = (List<Map<String, Object>>) data.get("cookies");
-                Map<String, String> restAssuredCookies = new HashMap<>();
-                for (Map<String, Object> cookieObj : cookies) {
-                    String name = (String) cookieObj.get("name");
-                    String value = (String) cookieObj.get("value");
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> cookies = (List<Map<String, Object>>) data.get("cookies");
+            Map<String, String> restAssuredCookies = new HashMap<>();
 
-                    if (name != null) {
-                        restAssuredCookies.put(name, value != null ? value : "");
-                    }
-                }
-
-                return restAssuredCookies;
-
-            } else {
-                System.out.println("Cookies expired! Generating new cookies...");
-                loginToSystem(userName, password);
-                return loadCookies(userName, password, warehouse);
+            for (Map<String, Object> cookieObj : cookies) {
+                String name = (String) cookieObj.get("name");
+                String value = (String) cookieObj.get("value");
+                if (name != null) restAssuredCookies.put(name, value != null ? value : "");
             }
+
+            return restAssuredCookies;
 
         } catch (Exception e) {
             throw new RuntimeException("Failed to load cookies from file!", e);
@@ -74,7 +85,9 @@ public class CookiesConfig {
     }
 
     //todo
-    private static void loginToSystem(String userName, String password) {
+    public static void loginAndSaveCookies(String userName, String password) {
+        System.out.println("Generating new cookies...");
+
         WebDriver driver = initBrowserThenNavigateTo(URL);
 
         sendKeysToVisibleElement(driver, By.cssSelector(USER_TEXTBOX), userName);
@@ -135,17 +148,14 @@ public class CookiesConfig {
             data.put("cookies", cookies);
 
             File directory = new File(COOKIES_DIR);
-            if (!directory.exists()) {
-                directory.mkdirs();
-            }
+            if (!directory.exists()) directory.mkdirs();
 
-            String fileName = userName.replace("@", "_").toUpperCase()
-                    + "_" + warehouse + ".json";
+            String fileName = userName + "_" + warehouse + ".json";
             File file = new File(directory, fileName);
 
             ObjectMapper mapper = new ObjectMapper();
             mapper.writerWithDefaultPrettyPrinter().writeValue(file, data);
-            System.out.println(" -> Cookies saved successfully at: " + file.getAbsolutePath());
+            // System.out.println(" -> Cookies saved successfully at: " + file.getAbsolutePath());
 
         } catch (Exception e) {
             throw new RuntimeException("Failed to save cookies for user: " + userName, e);

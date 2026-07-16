@@ -1,4 +1,4 @@
-package services;
+package api;
 
 import io.restassured.RestAssured;
 import io.restassured.response.Response;
@@ -17,18 +17,17 @@ import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
+import static app.Constants.*;
+
 public class APICalling {
 
     private static final String BASE_URL = "https://wms.ssc.shopee.vn";
-
-    private static final String OUTPUT_DIR = System.getProperty("user.dir") + File.separator + "output";
 
     private static RequestSpecification requestSpec(Map<String, String> cookies) {
         return RestAssured.given().baseUri(BASE_URL).cookies(cookies);
     }
 
     public static void generateReport(String begTime, String endTime, Map<String, String> cookies) {
-        System.out.println("Generating report...");
 
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss");
         long begTimeEpoch = LocalDateTime.parse(begTime, formatter).toEpochSecond(ZoneOffset.ofHours(7));
@@ -90,7 +89,6 @@ public class APICalling {
 
                 List<?> taskList = response.jsonPath().getList("data.list");
                 if (taskList == null || taskList.isEmpty()) {
-                    System.out.println("Report list is empty! Retrieving in 5 seconds...");
                     Thread.sleep(5000);
                     maxAttempts--;
                     continue;
@@ -100,7 +98,7 @@ public class APICalling {
                 Integer taskStatus = response.jsonPath().get("data.list[0].task_status");
                 Integer progress = response.jsonPath().get("data.list[0].processed_percentage");
 
-                System.out.println("[" + taskId + "] - Status: " + taskStatus + " - Progress: " + progress + "%");
+                // System.out.println("[" + taskId + "] - Status: " + taskStatus + " - Progress: " + progress + "%");
 
                 if (taskStatus != null && progress != null && taskStatus == 2 && progress == 100) {
                     return response.jsonPath().getString("data.list[0].download_link");
@@ -118,10 +116,7 @@ public class APICalling {
     }
 
     public static void downloadReportFile(Map<String, String> cookies, String subDir) {
-        System.out.println("Preparing download URL...");
         String downloadUrl = getDownloadUrl(cookies);
-
-        System.out.println("Downloading report...");
         Response response = requestSpec(cookies).get(downloadUrl);
 
         if (response.getStatusCode() != 200) {
@@ -159,7 +154,6 @@ public class APICalling {
                         entryParent.mkdirs();
                     }
 
-                    System.out.println(" -> Extracting part: [" + entry.getName() + "] to " + extractedFile.getAbsolutePath());
                     try (FileOutputStream fos = new FileOutputStream(extractedFile)) {
                         byte[] buffer = new byte[4096];
                         int length;
@@ -195,7 +189,6 @@ public class APICalling {
             }
 
             File finalSingleFile = new File(targetDir, shopeeFileName);
-            System.out.println(" -> Saving file: [" + shopeeFileName + "] to " + finalSingleFile.getAbsolutePath());
 
             try (FileOutputStream fos = new FileOutputStream(finalSingleFile)) {
                 fos.write(fileBytes);

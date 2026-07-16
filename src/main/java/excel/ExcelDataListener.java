@@ -1,7 +1,8 @@
-package easyExcel;
+package excel;
 
 import com.alibaba.excel.context.AnalysisContext;
 import com.alibaba.excel.read.listener.ReadListener;
+
 import java.util.Map;
 import java.util.Set;
 
@@ -10,7 +11,6 @@ public class ExcelDataListener implements ReadListener<RowData> {
     private final Map<String, Integer> sharedStatusCounts;
     private final Set<String> sharedProcessedColB;
 
-    // Nhận map đếm và set lọc trùng từ bên ngoài truyền vào để cộng dồn
     public ExcelDataListener(Map<String, Integer> sharedStatusCounts, Set<String> sharedProcessedColB) {
         this.sharedStatusCounts = sharedStatusCounts;
         this.sharedProcessedColB = sharedProcessedColB;
@@ -23,7 +23,6 @@ public class ExcelDataListener implements ReadListener<RowData> {
         String valueB = data.getColB().trim();
         if (valueB.isEmpty()) return;
 
-        // Lọc trùng cột B xuyên suốt TẤT CẢ các file
         if (!sharedProcessedColB.contains(valueB)) {
             sharedProcessedColB.add(valueB);
 
@@ -36,6 +35,6 @@ public class ExcelDataListener implements ReadListener<RowData> {
 
     @Override
     public void doAfterAllAnalysed(AnalysisContext context) {
-        // Không in kết quả ở đây nữa vì ta cần đợi tất cả các file chạy xong
+
     }
 }

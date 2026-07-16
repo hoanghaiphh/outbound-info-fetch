@@ -12,6 +12,8 @@ target/
 *.iws
 *.iml
 *.ipr
+output/
+cookies-store/
 
 ### Eclipse ###
 .apt_generated

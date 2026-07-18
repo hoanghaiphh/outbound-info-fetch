@@ -17,9 +17,9 @@ import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
-import static app.Constants.*;
+import static app.GlobalConstants.*;
 
-public class APICalling {
+public class WmsApiCalling {
 
     private static final String BASE_URL = "https://wms.ssc.shopee.vn";
 

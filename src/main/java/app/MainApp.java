@@ -1,7 +1,8 @@
 package app;
 
+import api.SeatalkService;
 import excel.ExcelHelper;
-import api.APICalling;
+import api.WmsApiCalling;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -15,7 +16,7 @@ import java.util.Scanner;
 import java.util.concurrent.*;
 import java.util.stream.Stream;
 
-import static app.Constants.*;
+import static app.GlobalConstants.*;
 import static api.CookiesConfig.*;
 
 public class MainApp {
@@ -28,6 +29,8 @@ public class MainApp {
         t.setDaemon(true);
         return t;
     });
+
+    private static final SeatalkService seatalk = new SeatalkService();
 
     public static void main(String[] args) {
         try (Scanner scanner = new Scanner(System.in)) {
@@ -79,17 +82,19 @@ public class MainApp {
         }
 
         System.out.println("Fetching data...");
-        fetchInfo();
+        seatalk.sendImgToGroup(fetchInfo());
 
         try {
             while (!Thread.currentThread().isInterrupted()) {
-                TimeUnit.MINUTES.sleep(3);
+                TimeUnit.MINUTES.sleep(5);
                 prepareCookies();
-                fetchInfo();
+                seatalk.sendImgToGroup(fetchInfo());
             }
         } catch (InterruptedException e) {
             System.err.println("Main thread interrupted. Shutting down...");
             Thread.currentThread().interrupt();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
         } finally {
             shutdownExecutor();
         }
@@ -103,20 +108,20 @@ public class MainApp {
         cookiesL = loadCookies(username, "VNDL");
     }
 
-    private static void fetchInfo() {
+    private static String fetchInfo() {
         cleanUpOutput();
 
         String curTime = LocalDateTime.now().format(FORMATTER);
 
         if (executor.isShutdown()) {
             System.err.println("Executor pool has been shutdown unexpectedly!");
-            return;
+            return null;
         }
 
         CompletableFuture<Void> taskB = CompletableFuture.runAsync(() -> {
             try {
-                APICalling.generateReport(begTime, endTime, cookiesB);
-                APICalling.downloadReportFile(cookiesB, "VNDB");
+                WmsApiCalling.generateReport(begTime, endTime, cookiesB);
+                WmsApiCalling.downloadReportFile(cookiesB, "VNDB");
             } catch (Exception e) {
                 throw new CompletionException("VNDB failed", e);
             }
@@ -124,8 +129,8 @@ public class MainApp {
 
         CompletableFuture<Void> taskL = CompletableFuture.runAsync(() -> {
             try {
-                APICalling.generateReport(begTime, endTime, cookiesL);
-                APICalling.downloadReportFile(cookiesL, "VNDL");
+                WmsApiCalling.generateReport(begTime, endTime, cookiesL);
+                WmsApiCalling.downloadReportFile(cookiesL, "VNDL");
             } catch (Exception e) {
                 throw new CompletionException("VNDL failed", e);
             }
@@ -136,23 +141,33 @@ public class MainApp {
         try {
             combinedTask.get(10, TimeUnit.MINUTES);
 
-            ExcelHelper.displayResultsInComparison();
+            String result = ExcelHelper.displayResultsInComparison();
 
             System.out.println("From: " + ANSI_YELLOW + begTime + ANSI_RESET
                     + " - To: " + ANSI_YELLOW + endTime + ANSI_RESET);
             System.out.println("Generated time: " + ANSI_YELLOW + curTime + ANSI_RESET
                     + " By: " + ANSI_YELLOW + username + ANSI_RESET);
 
+            return result;
+
         } catch (TimeoutException e) {
             System.err.println("Timeout reached! One or more tasks exceeded 10 minutes limit. Canceling...");
             taskB.cancel(true);
             taskL.cancel(true);
+
+            return null;
+
         } catch (ExecutionException e) {
             System.err.println("Task Execution failed: " + e.getCause().getMessage());
             e.printStackTrace();
+
+            return null;
+
         } catch (InterruptedException e) {
             System.err.println("Execution was interrupted!");
             Thread.currentThread().interrupt();
+
+            return null;
         }
     }
 

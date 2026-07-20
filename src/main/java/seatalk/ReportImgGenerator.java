@@ -108,7 +108,7 @@ public class ReportImgGenerator {
             }
 
             // Vẽ chữ cột Status
-            g2d.setColor(ACTIVE_STATUSES.contains(status) ? COLOR_ACTIVE_STATUS : COLOR_NORMAL_STATUS);
+            g2d.setColor(HIGHLIGHT_STATUSES.contains(status) ? COLOR_ACTIVE_STATUS : COLOR_NORMAL_STATUS);
             g2d.drawString(status, COL_STATUS_X, localY);
 
             // Vẽ chữ cột VNDB (Right-aligned)

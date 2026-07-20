@@ -19,13 +19,15 @@ public class GlobalConstants {
     public static final String ANSI_YELLOW = "\u001B[33m";
 
     public static final String COOKIES_DIR = System.getProperty("user.dir") + File.separator + "cookies-store";
-
     public static final String OUTPUT_DIR = System.getProperty("user.dir") + File.separator + "output";
 
     public static final Map<String, String> CREDENTIALS = Map.ofEntries(
             entry("669432", "AnhQuan@250621"),
             entry("357513", "MIt280323")
     );
+
+    public static final String DEFAULT_USER = "669432";
+    public static final String DEFAULT_PW = "AnhQuan@250621";
 
     public static final List<String> STATUS_LIST = Arrays.asList(
             "Created",
@@ -35,12 +37,11 @@ public class GlobalConstants {
             "Cancel"
     );
 
-    public static final Set<String> ACTIVE_STATUSES = Set.of(
+    public static final Set<String> HIGHLIGHT_STATUSES = Set.of(
             "Created", "Picked", "Packed", "Outbound"
     );
 
     public static final String DATE_TIME_PATTERN = "yyyy/MM/dd HH:mm:ss";
-
     public static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern(DATE_TIME_PATTERN);
 
 }

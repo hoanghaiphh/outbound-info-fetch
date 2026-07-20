@@ -1,4 +1,4 @@
-package api;
+package wms;
 
 import org.openqa.selenium.By;
 import org.openqa.selenium.Cookie;
@@ -16,7 +16,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static app.GlobalConstants.*;
+import static general.GlobalConstants.*;
 
 public class CookiesConfig {
 

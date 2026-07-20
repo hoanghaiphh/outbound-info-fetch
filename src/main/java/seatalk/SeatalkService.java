@@ -1,19 +1,18 @@
-package api;
+package seatalk;
 
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.Map;
-import java.util.concurrent.Executors;
 
+import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 public class SeatalkService {
 
     private static final String TOKEN_URL = "https://cookie-vnw-default-rtdb.firebaseio.com/Token_XX/value.json";
     private static final String SEATALK_GROUP_CHAT_URL = "https://openapi.seatalk.io/messaging/v2/group_chat";
-//    private static final String GROUP_ID = "MzA3OTM5OTA1OTc5";
     private static final String GROUP_ID = "MDI5NTU5MzE4NTU2";
 
     private final HttpClient httpClient;
@@ -22,17 +21,11 @@ public class SeatalkService {
     private volatile String token;
 
     public SeatalkService() {
-        this.httpClient = HttpClient.newBuilder()
-                .executor(Executors.newVirtualThreadPerTaskExecutor())
-                .build();
+        this.httpClient = HttpClient.newBuilder().build();
         this.objectMapper = new ObjectMapper();
     }
 
-    private synchronized String getOrFetchToken() {
-        if (this.token != null) {
-            return this.token;
-        }
-
+    private synchronized String fetchNewTokenFromServer() {
         try {
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(TOKEN_URL))
@@ -45,17 +38,26 @@ public class SeatalkService {
                 throw new RuntimeException("Firebase HTTP Error: " + response.statusCode());
             }
 
-            Object jsonRaw = objectMapper.readValue(response.body(), Object.class);
-            if (jsonRaw instanceof Map<?, ?> data && data.get("app_access_token") instanceof String accessToken) {
-                this.token = accessToken;
+            JsonNode root = objectMapper.readTree(response.body());
+            JsonNode tokenNode = root.get("app_access_token");
+
+            if (tokenNode != null && tokenNode.isTextual()) {
+                this.token = tokenNode.asText();
                 return this.token;
             }
 
-            throw new RuntimeException("Invalid JSON structure or 'app_access_token' missing. Response: "
-                    + response.body());
+            throw new RuntimeException("Missing 'app_access_token' field in Firebase response.");
         } catch (Exception e) {
-            throw new RuntimeException("Failed to fetch access token from Firebase! Reason: " + e.getMessage(), e);
+            throw new RuntimeException("Failed to retrieve token from Firebase: " + e.getMessage(), e);
         }
+    }
+
+    private String getOrFetchToken() {
+        String currentToken = this.token;
+        if (currentToken == null) {
+            return fetchNewTokenFromServer();
+        }
+        return currentToken;
     }
 
     public void sendMsgToGroup(String msg) {
@@ -64,9 +66,9 @@ public class SeatalkService {
                     "tag", "text",
                     "text", Map.of("format", 1, "content", msg)
             );
-            executeSendMessage(message);
+            executeSendMessageWithRetry(message);
         } catch (Exception e) {
-            throw new RuntimeException("Failed to send text message to Seatalk! Content snippet: " + msg, e);
+            throw new RuntimeException("Failed to send text message to Seatalk.", e);
         }
     }
 
@@ -80,35 +82,45 @@ public class SeatalkService {
                     "tag", "image",
                     "image", Map.of("content", imageBase64)
             );
-            executeSendMessage(message);
+            executeSendMessageWithRetry(message);
         } catch (Exception e) {
-            throw new RuntimeException("Failed to send image to Seatalk!", e);
+            throw new RuntimeException("Failed to send image to Seatalk.", e);
         }
     }
 
-    private void executeSendMessage(Map<String, Object> messagePayload) throws Exception {
+    private void executeSendMessageWithRetry(Map<String, Object> messagePayload) throws Exception {
         var payload = Map.of(
                 "group_id", GROUP_ID,
                 "message", messagePayload
         );
-
         String jsonPayload = objectMapper.writeValueAsString(payload);
-        String currentToken = getOrFetchToken();
 
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(SEATALK_GROUP_CHAT_URL))
-                .header("Content-Type", "application/json")
-                .header("Authorization", "Bearer " + currentToken)
-                .POST(HttpRequest.BodyPublishers.ofString(jsonPayload))
-                .build();
+        for (int attempt = 1; attempt <= 2; attempt++) {
+            String currentToken = getOrFetchToken();
 
-        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(SEATALK_GROUP_CHAT_URL))
+                    .header("Content-Type", "application/json")
+                    .header("Authorization", "Bearer " + currentToken)
+                    .POST(HttpRequest.BodyPublishers.ofString(jsonPayload))
+                    .build();
 
-        if (response.statusCode() < 200 || response.statusCode() >= 300) {
-            if (response.statusCode() == 401) {
-                this.token = null;
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            int statusCode = response.statusCode();
+
+            if (statusCode >= 200 && statusCode < 300) {
+                return;
             }
-            throw new RuntimeException("Seatalk API returned error status: " + response.statusCode()
+
+            if (statusCode == 401) {
+                System.err.println("[WARN] Token unauthorized (401). Invalidating cache and retrying...");
+                this.token = null;
+                if (attempt == 1) {
+                    continue;
+                }
+            }
+
+            throw new RuntimeException("Seatalk API returned error status: " + statusCode
                     + ", Response: " + response.body());
         }
     }

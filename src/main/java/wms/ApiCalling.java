@@ -1,4 +1,4 @@
-package api;
+package wms;
 
 import io.restassured.RestAssured;
 import io.restassured.response.Response;
@@ -17,9 +17,9 @@ import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
-import static app.GlobalConstants.*;
+import static general.GlobalConstants.*;
 
-public class WmsApiCalling {
+public class ApiCalling {
 
     private static final String BASE_URL = "https://wms.ssc.shopee.vn";
 
@@ -27,7 +27,7 @@ public class WmsApiCalling {
         return RestAssured.given().baseUri(BASE_URL).cookies(cookies);
     }
 
-    public static void generateReport(String begTime, String endTime, Map<String, String> cookies) {
+    public static void generateReportFile(String begTime, String endTime, Map<String, String> cookies) {
 
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss");
         long begTimeEpoch = LocalDateTime.parse(begTime, formatter).toEpochSecond(ZoneOffset.ofHours(7));

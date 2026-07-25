@@ -23,7 +23,8 @@ public class GlobalConstants {
 
     public static final Map<String, String> CREDENTIALS = Map.ofEntries(
             entry("669432", "AnhQuan@250621"),
-            entry("357513", "MIt280323")
+            entry("357513", "MIt280323"),
+            entry("336104", "@Shopee123")
     );
 
     public static final String DEFAULT_USER = "669432";

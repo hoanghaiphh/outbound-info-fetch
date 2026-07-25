@@ -4,6 +4,7 @@ import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import javax.imageio.ImageIO;
+import java.io.InputStream;
 import java.util.Base64;
 import java.util.Map;
 
@@ -74,7 +75,14 @@ public class ReportImgGenerator {
         g2d.setColor(BG_COLOR);
         g2d.fillRect(0, 0, IMAGE_WIDTH, imageHeight);
 
-        g2d.setFont(new Font("Monospaced", Font.PLAIN, 16));
+        try {
+            InputStream fontStream = ReportImgGenerator.class.getResourceAsStream("/fonts/FiraCode-Medium.ttf");
+            Font jetbrainsFont = Font.createFont(Font.TRUETYPE_FONT, fontStream).deriveFont(16f);
+            g2d.setFont(jetbrainsFont);
+        } catch (Exception e) {
+            e.printStackTrace();
+            g2d.setFont(new Font("Monospaced", Font.PLAIN, 16));
+        }
     }
 
     private static void drawHeader(Graphics2D g2d, FontMetrics metrics, int y) {

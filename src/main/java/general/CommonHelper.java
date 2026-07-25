@@ -8,7 +8,7 @@ import java.time.LocalTime;
 import java.util.Comparator;
 import java.util.stream.Stream;
 
-import static general.GlobalConstants.FORMATTER;
+import static general.GlobalConstants.DATE_TIME_FORMATTER;
 
 public class CommonHelper {
 
@@ -51,8 +51,8 @@ public class CommonHelper {
             endTime = now.with(boundaryTime);
         }
 
-        String startStr = startTime.format(FORMATTER);
-        String endStr = endTime.format(FORMATTER);
+        String startStr = startTime.format(DATE_TIME_FORMATTER);
+        String endStr = endTime.format(DATE_TIME_FORMATTER);
 
         return new String[]{startStr, endStr};
     }

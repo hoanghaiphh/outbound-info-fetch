@@ -8,12 +8,12 @@ import tools.jackson.databind.ObjectMapper;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileOutputStream;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -29,9 +29,8 @@ public class ApiCalling {
 
     public static void generateReportFile(String begTime, String endTime, Map<String, String> cookies) {
 
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss");
-        long begTimeEpoch = LocalDateTime.parse(begTime, formatter).toEpochSecond(ZoneOffset.ofHours(7));
-        long endTimeEpoch = LocalDateTime.parse(endTime, formatter).toEpochSecond(ZoneOffset.ofHours(7));
+        long begTimeEpoch = LocalDateTime.parse(begTime, DATE_TIME_FORMATTER).toEpochSecond(ZoneOffset.ofHours(7));
+        long endTimeEpoch = LocalDateTime.parse(endTime, DATE_TIME_FORMATTER).toEpochSecond(ZoneOffset.ofHours(7));
 
         Map<String, Object> extraDataMap = new HashMap<>();
         extraDataMap.put("beg_ctime", begTimeEpoch);
@@ -196,6 +195,130 @@ public class ApiCalling {
                 throw new RuntimeException("Error writing single file to disk: " + finalSingleFile.getAbsolutePath(), e);
             }
         }
+    }
+
+    private static List<String> getOrderListFromLMTrackingNo(
+            Map<String, String> cookies, String begTime, String endTime, String lmTrackingNo) {
+
+        long begTimeEpoch = LocalDateTime.parse(begTime, DATE_TIME_FORMATTER).toEpochSecond(ZoneOffset.ofHours(7));
+        long endTimeEpoch = LocalDateTime.parse(endTime, DATE_TIME_FORMATTER).toEpochSecond(ZoneOffset.ofHours(7));
+
+        Map<String, Object> queryParams1 = new HashMap<>();
+        queryParams1.put("beg_ctime", begTimeEpoch);
+        queryParams1.put("count", 20);
+        queryParams1.put("end_ctime", endTimeEpoch);
+        queryParams1.put("is_get_total", 0);
+        queryParams1.put("pageno", 1);
+        queryParams1.put("second_search_key", lmTrackingNo);
+
+        Response searchOrderResponse = requestSpec(cookies)
+                .queryParams(queryParams1)
+                .get("/api/v2/apps/process/outbound/salesorder/search_order");
+
+        if (searchOrderResponse.getStatusCode() != 200) {
+            throw new RuntimeException("Failed to search Order. API status code "
+                    + searchOrderResponse.getStatusCode());
+        }
+
+        String orderNumber = searchOrderResponse.jsonPath().getString("data.list[0].order_number");
+
+        Response getTaskIdResponse = requestSpec(cookies)
+                .queryParam("order_number", orderNumber)
+                .get("/api/v2/apps/process/outbound/salesorder/get_order_detail");
+
+        if (getTaskIdResponse.getStatusCode() != 200) {
+            throw new RuntimeException("Failed to get Order detail. API status code "
+                    + getTaskIdResponse.getStatusCode());
+        }
+
+        String taskId = getTaskIdResponse.jsonPath().getString("data.pickup_id");
+
+        Map<String, Object> queryParams2 = new HashMap<>();
+        queryParams2.put("is_get_total", 1);
+        queryParams2.put("search_key", taskId);
+        queryParams2.put("start_time", begTimeEpoch);
+        queryParams2.put("end_time", endTimeEpoch);
+        queryParams2.put("pageno", 1);
+        queryParams2.put("count", 200);
+
+        Response searchCheckingTaskResponse = requestSpec(cookies)
+                .queryParams(queryParams2)
+                .get("/api/v2/apps/process/taskcenter/checkingtask/search_checking_task");
+
+        if (searchCheckingTaskResponse.getStatusCode() != 200) {
+            throw new RuntimeException("Failed to search Checking Task. API status code "
+                    + searchCheckingTaskResponse.getStatusCode());
+        }
+
+        List<String> taskNumbers = searchCheckingTaskResponse.jsonPath()
+                .getList("data.list.task_number", String.class);
+
+        return taskNumbers != null ? taskNumbers : Collections.emptyList();
+    }
+
+    private static Response getCheckingTaskDetail(Map<String, String> cookies, String checkingTaskId) {
+        Response response = requestSpec(cookies)
+                .queryParam("task_number", checkingTaskId)
+                .get("/api/v2/apps/process/taskcenter/checkingtask/get_checking_task_detail");
+
+        if (response.getStatusCode() != 200) {
+            throw new RuntimeException("Failed to get Checking Task Detail. API status code "
+                    + response.getStatusCode());
+        }
+
+        return response;
+    }
+
+    public static void displayRePrintOrderFromLMTrackingNo(
+            Map<String, String> cookies, String begTime, String endTime, String lmTrackingNo) {
+
+        List<String> orderList = getOrderListFromLMTrackingNo(cookies, begTime, endTime, lmTrackingNo);
+
+        DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss")
+                .withZone(ZoneId.of("Asia/Ho_Chi_Minh"));
+
+        for (String task : orderList) {
+            Response response = getCheckingTaskDetail(cookies, task);
+
+            Integer printAwbCount = response.jsonPath().get("data.print_awb_count");
+
+            if (printAwbCount != null && printAwbCount > 1) {
+                String orderNumber = response.jsonPath().get("data.order_info.lm_tracking_no");
+
+                List<Map<String, Object>> printLogs = response.jsonPath().getList("data.print_awb_log_list");
+
+                System.out.println(ANSI_YELLOW + "==================================================");
+                System.out.printf("LM Tracking No: %s (Print count: %s)\n",
+                        ANSI_CYAN + orderNumber + ANSI_YELLOW, ANSI_CYAN + printAwbCount + ANSI_YELLOW);
+                System.out.println("Print log:");
+
+                if (printLogs != null && !printLogs.isEmpty()) {
+                    for (Map<String, Object> log : printLogs) {
+                        Number ctimeNum = (Number) log.get("ctime");
+                        String operator = (String) log.get("operator");
+
+                        String timeFormatted = "N/A";
+                        if (ctimeNum != null) {
+                            timeFormatted = timeFormatter.format(Instant.ofEpochSecond(ctimeNum.longValue()));
+                        }
+
+                        System.out.printf("   - %s | Operator: %s\n", timeFormatted, operator);
+                    }
+                } else {
+                    System.out.println("   - No log available");
+                }
+                System.out.println();
+            }
+        }
+    }
+
+    public static void main(String[] args) {
+        displayRePrintOrderFromLMTrackingNo(
+                CookiesConfig.loadCookies("669432", "VNDL"),
+                "2026/07/19 18:00:00",
+                "2026/07/24 18:00:00",
+                "SPXVN062524848687"
+        );
     }
 
 }

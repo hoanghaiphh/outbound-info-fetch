@@ -42,6 +42,8 @@ public class GlobalConstants {
     );
 
     public static final String DATE_TIME_PATTERN = "yyyy/MM/dd HH:mm:ss";
-    public static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern(DATE_TIME_PATTERN);
+    public static final String TIME_ONLY_PATTERN = "HH:mm:ss";
+    public static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern(DATE_TIME_PATTERN);
+    public static final DateTimeFormatter TIME_ONLY_FORMATTER = DateTimeFormatter.ofPattern(TIME_ONLY_PATTERN);
 
 }

@@ -13,21 +13,21 @@ import java.util.concurrent.*;
 
 import static general.GlobalConstants.*;
 
-public class QueryInfo {
+public class QueryBacklog {
 
     private static String username, password, begTime, endTime;
 
     private static final ExecutorService executor = Executors.newFixedThreadPool(2, r -> {
         Thread t = new Thread(r);
         t.setDaemon(true);
-        t.setName("SeatalkBot-Worker");
+        t.setName("WMS-Backlog");
         return t;
     });
 
     public static void main(String[] args) {
         try (Scanner scanner = new Scanner(System.in)) {
             while (true) {
-                System.out.print("USERNAME:\n");
+                System.out.println("USERNAME:");
                 username = scanner.nextLine().trim();
 
                 if (CREDENTIALS.containsKey(username)) {
@@ -50,12 +50,12 @@ public class QueryInfo {
                 }
 
                 try {
-                    LocalDateTime begLdt = LocalDateTime.parse(begTime, FORMATTER);
+                    LocalDateTime begLdt = LocalDateTime.parse(begTime, DATE_TIME_FORMATTER);
 
                     System.out.println("END_TIME: " + DATE_TIME_PATTERN);
                     endTime = scanner.nextLine().trim();
 
-                    LocalDateTime endLdt = LocalDateTime.parse(endTime, FORMATTER);
+                    LocalDateTime endLdt = LocalDateTime.parse(endTime, DATE_TIME_FORMATTER);
 
                     if (endLdt.isAfter(begLdt)) {
                         break;
@@ -91,7 +91,7 @@ public class QueryInfo {
 
             CommonHelper.cleanUpDirectory(OUTPUT_DIR);
 
-            String curTime = LocalDateTime.now().format(FORMATTER);
+            String curTime = LocalDateTime.now().format(DATE_TIME_FORMATTER);
 
             CompletableFuture<Void> taskB = CompletableFuture.runAsync(() -> {
                 try {

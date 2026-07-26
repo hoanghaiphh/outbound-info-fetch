@@ -312,13 +312,13 @@ public class ApiCalling {
         }
     }
 
-    public static void main(String[] args) {
-        displayRePrintOrderFromLMTrackingNo(
-                CookiesConfig.loadCookies("669432", "VNDL"),
-                "2026/07/19 18:00:00",
-                "2026/07/24 18:00:00",
-                "SPXVN062524848687"
-        );
-    }
+//    public static void main(String[] args) {
+//        displayRePrintOrderFromLMTrackingNo(
+//                CookiesConfig.loadCookies("669432", "VNDL"),
+//                "2026/07/19 18:00:00",
+//                "2026/07/24 18:00:00",
+//                "SPXVN062524848687"
+//        );
+//    }
 
 }

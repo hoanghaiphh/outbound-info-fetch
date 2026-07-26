@@ -1,7 +1,7 @@
 package app;
 
 import wms.CookiesConfig;
-import seatalk.SeatalkService;
+import seatalk.SeaTalkService;
 import wms.ApiCalling;
 import seatalk.ReportImgGenerator;
 import general.CommonHelper;
@@ -11,9 +11,9 @@ import java.util.concurrent.*;
 
 import static general.GlobalConstants.*;
 
-public class SeatalkBot {
+public class SeaTalkBot {
 
-    private static final SeatalkService seatalk = new SeatalkService();
+    private static final SeaTalkService seatalk = new SeaTalkService();
 
     private static final ExecutorService executor = Executors.newFixedThreadPool(2, r -> {
         Thread t = new Thread(r);

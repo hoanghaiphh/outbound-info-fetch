@@ -191,8 +191,8 @@ public class SeaTalkService {
                         return;
                     }
 
-                    if (attempt == 1 && (responseCode == 10002 || responseCode == 10006 || responseCode == 401)) {
-                        System.err.println("[WARN] Invalid token response from SeaTalk API (code: " + responseCode + "). Retrying...");
+                    if (attempt == 1) {
+                        System.err.println("[WARN] SeaTalk API error code (" + responseCode + "). Invalidating token and retrying...");
                         invalidateToken();
                         continue;
                     }

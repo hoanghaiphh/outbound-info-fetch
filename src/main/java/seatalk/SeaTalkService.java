@@ -10,8 +10,10 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.Executors;
+import java.util.concurrent.locks.ReentrantLock;
 
-import tools.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 public class SeaTalkService {
 
@@ -21,13 +23,13 @@ public class SeaTalkService {
 
     private String appId;
     private String appSecret;
-    private String groupId;
 
     private final HttpClient httpClient;
     private final ObjectMapper objectMapper;
+    private final ReentrantLock tokenLock = new ReentrantLock();
 
-    private String cachedAccessToken;
-    private Instant tokenExpiryTime = Instant.MIN;
+    private volatile String cachedAccessToken;
+    private volatile Instant tokenExpiryTime = Instant.MIN;
 
     public SeaTalkService() {
         loadCredentials();
@@ -49,31 +51,35 @@ public class SeaTalkService {
 
             this.appId = props.getProperty("seatalk.app_id");
             this.appSecret = props.getProperty("seatalk.app_secret");
-            this.groupId = props.getProperty("seatalk.group_id");
 
-            if (appId == null || appSecret == null || groupId == null) {
-                throw new IllegalArgumentException("Missing required configuration keys in " + CONFIG_FILE_PATH);
+            if (appId == null || appId.isBlank() || appSecret == null || appSecret.isBlank()) {
+                throw new IllegalArgumentException("Missing required configuration keys (seatalk.app_id, seatalk.app_secret) in " + CONFIG_FILE_PATH);
             }
         } catch (Exception e) {
             throw new RuntimeException("Failed to load configuration file: " + CONFIG_FILE_PATH, e);
         }
     }
 
-    private synchronized void invalidateToken() {
+    private void invalidateToken() {
         this.cachedAccessToken = null;
         this.tokenExpiryTime = Instant.MIN;
     }
 
-    private synchronized String getAccessToken(boolean forceRefresh) {
-        if (forceRefresh) {
-            invalidateToken();
-        }
-
-        if (cachedAccessToken != null && Instant.now().isBefore(tokenExpiryTime.minusSeconds(60))) {
+    private String getAccessToken(boolean forceRefresh) {
+        if (!forceRefresh && cachedAccessToken != null && Instant.now().isBefore(tokenExpiryTime.minusSeconds(60))) {
             return cachedAccessToken;
         }
 
+        tokenLock.lock();
         try {
+            if (!forceRefresh && cachedAccessToken != null && Instant.now().isBefore(tokenExpiryTime.minusSeconds(60))) {
+                return cachedAccessToken;
+            }
+
+            if (forceRefresh) {
+                invalidateToken();
+            }
+
             var authPayload = Map.of(
                     "app_id", appId,
                     "app_secret", appSecret
@@ -94,14 +100,15 @@ public class SeaTalkService {
                 throw new RuntimeException("SeaTalk Auth HTTP Error: " + response.statusCode() + " Body: " + response.body());
             }
 
-            Map<?, ?> responseMap = objectMapper.readValue(response.body(), Map.class);
+            Map<String, Object> responseMap = objectMapper.readValue(response.body(), new TypeReference<>() {
+            });
 
             if (responseMap.get("code") instanceof Number code && code.intValue() == 0) {
                 this.cachedAccessToken = (String) responseMap.get("app_access_token");
 
-                int expiresIn = 7200;
+                long expiresIn = 7200;
                 if (responseMap.get("expire") instanceof Number exp) {
-                    expiresIn = exp.intValue();
+                    expiresIn = exp.longValue();
                 }
 
                 this.tokenExpiryTime = Instant.now().plusSeconds(expiresIn);
@@ -114,20 +121,25 @@ public class SeaTalkService {
         } catch (Exception e) {
             invalidateToken();
             throw new RuntimeException("Error fetching SeaTalk access token: " + e.getMessage(), e);
+        } finally {
+            tokenLock.unlock();
         }
     }
 
-    public boolean sendMsgToGroup(String msg) {
+    public boolean sendMsgToGroup(String groupId, String msg) {
+        if (groupId == null || groupId.isBlank()) {
+            throw new IllegalArgumentException("Group ID cannot be null or empty.");
+        }
         if (msg == null || msg.isBlank()) {
             throw new IllegalArgumentException("Message content cannot be null or empty.");
         }
 
         try {
-            var message = Map.of(
+            var messagePayload = Map.of(
                     "tag", "text",
                     "text", Map.of("format", 1, "content", msg)
             );
-            executeSendMessageWithRetry(message);
+            executeSendMessageWithRetry(groupId, messagePayload);
             return true;
         } catch (Exception e) {
             System.err.println("[SeaTalkService System Error] " + e.getMessage());
@@ -135,17 +147,20 @@ public class SeaTalkService {
         }
     }
 
-    public boolean sendImgToGroup(String imageBase64) {
+    public boolean sendImgToGroup(String groupId, String imageBase64) {
+        if (groupId == null || groupId.isBlank()) {
+            throw new IllegalArgumentException("Group ID cannot be null or empty.");
+        }
         if (imageBase64 == null || imageBase64.strip().isEmpty()) {
             throw new IllegalArgumentException("Image Base64 string cannot be null or empty.");
         }
 
         try {
-            var message = Map.of(
+            var messagePayload = Map.of(
                     "tag", "image",
                     "image", Map.of("content", imageBase64)
             );
-            executeSendMessageWithRetry(message);
+            executeSendMessageWithRetry(groupId, messagePayload);
             return true;
         } catch (Exception e) {
             System.err.println("[SeaTalkService System Error] " + e.getMessage());
@@ -153,7 +168,7 @@ public class SeaTalkService {
         }
     }
 
-    private void executeSendMessageWithRetry(Map<String, Object> messagePayload) throws Exception {
+    private void executeSendMessageWithRetry(String groupId, Map<String, Object> messagePayload) throws Exception {
         var payload = Map.of(
                 "group_id", groupId,
                 "message", messagePayload
@@ -182,7 +197,8 @@ public class SeaTalkService {
             }
 
             if (statusCode >= 200 && statusCode < 300) {
-                Map<?, ?> responseMap = objectMapper.readValue(response.body(), Map.class);
+                Map<String, Object> responseMap = objectMapper.readValue(response.body(), new TypeReference<>() {
+                });
 
                 if (responseMap.get("code") instanceof Number code) {
                     int responseCode = code.intValue();

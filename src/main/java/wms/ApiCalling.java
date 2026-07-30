@@ -1,18 +1,21 @@
 package wms;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.restassured.RestAssured;
+import io.restassured.config.HttpClientConfig;
+import io.restassured.config.RestAssuredConfig;
 import io.restassured.response.Response;
 import io.restassured.specification.RequestSpecification;
-import tools.jackson.databind.ObjectMapper;
+import seatalk.RePrintOrderInfo;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileOutputStream;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.time.ZoneOffset;
-import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -23,8 +26,18 @@ public class ApiCalling {
 
     private static final String BASE_URL = "https://wms.ssc.shopee.vn";
 
+    private static final ObjectMapper MAPPER = new ObjectMapper();
+
+    private static final RestAssuredConfig REST_ASSURED_CONFIG = RestAssuredConfig.config()
+            .httpClient(HttpClientConfig.httpClientConfig()
+                    .setParam("http.connection.timeout", 10000)
+                    .setParam("http.socket.timeout", 30000));
+
     private static RequestSpecification requestSpec(Map<String, String> cookies) {
-        return RestAssured.given().baseUri(BASE_URL).cookies(cookies);
+        return RestAssured.given()
+                .config(REST_ASSURED_CONFIG)
+                .baseUri(BASE_URL)
+                .cookies(cookies);
     }
 
     public static void generateReportFile(String begTime, String endTime, Map<String, String> cookies) {
@@ -44,8 +57,7 @@ public class ApiCalling {
 
         String extraDataString;
         try {
-            ObjectMapper mapper = new ObjectMapper();
-            extraDataString = mapper.writeValueAsString(extraDataMap);
+            extraDataString = MAPPER.writeValueAsString(extraDataMap);
         } catch (Exception e) {
             throw new RuntimeException("Failed to serialize extra_data map to JSON string", e);
         }
@@ -82,8 +94,7 @@ public class ApiCalling {
                         .get("/api/v2/apps/basic/reportcenter/search_export_task");
 
                 if (response.getStatusCode() != 200) {
-                    throw new RuntimeException("Failed to get Download URL. API status code "
-                            + response.getStatusCode());
+                    throw new RuntimeException("Failed to get Download URL. API status code " + response.getStatusCode());
                 }
 
                 List<?> taskList = response.jsonPath().getList("data.list");
@@ -93,11 +104,8 @@ public class ApiCalling {
                     continue;
                 }
 
-                String taskId = response.jsonPath().getString("data.list[0].task_id");
                 Integer taskStatus = response.jsonPath().get("data.list[0].task_status");
                 Integer progress = response.jsonPath().get("data.list[0].processed_percentage");
-
-                // System.out.println("[" + taskId + "] - Status: " + taskStatus + " - Progress: " + progress + "%");
 
                 if (taskStatus != null && progress != null && taskStatus == 2 && progress == 100) {
                     return response.jsonPath().getString("data.list[0].download_link");
@@ -108,7 +116,7 @@ public class ApiCalling {
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new RuntimeException("Thread was interrupted while waiting for the report to be generated!", e);
+            throw new RuntimeException("Thread was interrupted while waiting for report generation!", e);
         }
 
         throw new RuntimeException("Timeout waiting for the report file to be generated!");
@@ -119,8 +127,7 @@ public class ApiCalling {
         Response response = requestSpec(cookies).get(downloadUrl);
 
         if (response.getStatusCode() != 200) {
-            throw new RuntimeException("Failed to download report file. API status code "
-                    + response.getStatusCode());
+            throw new RuntimeException("Failed to download report file. API status code " + response.getStatusCode());
         }
 
         File targetDir = new File(subDir);
@@ -163,21 +170,11 @@ public class ApiCalling {
                     zis.closeEntry();
                 }
             } catch (Exception e) {
-                throw new RuntimeException("Failed to unzip and extract multi-part report files!", e);
+                throw new RuntimeException("Failed to unzip and extract report files!", e);
             }
         } else {
-            String shopeeFileName = null;
-            String contentDisposition = response.header("Content-Disposition");
+            String shopeeFileName = parseFileNameFromHeader(response.header("Content-Disposition"));
 
-            if (contentDisposition != null && contentDisposition.contains("filename=")) {
-                int index = contentDisposition.indexOf("filename=");
-                shopeeFileName = contentDisposition.substring(index + 9).trim().replace("\"", "");
-                if (shopeeFileName.contains(";")) {
-                    shopeeFileName = shopeeFileName.substring(0, shopeeFileName.indexOf(";")).trim();
-                }
-            }
-
-            // fallback if Header is empty
             if (shopeeFileName == null || shopeeFileName.isEmpty()) {
                 try {
                     String path = new java.net.URL(downloadUrl).getPath();
@@ -192,9 +189,22 @@ public class ApiCalling {
             try (FileOutputStream fos = new FileOutputStream(finalSingleFile)) {
                 fos.write(fileBytes);
             } catch (Exception e) {
-                throw new RuntimeException("Error writing single file to disk: " + finalSingleFile.getAbsolutePath(), e);
+                throw new RuntimeException("Error writing file to disk: " + finalSingleFile.getAbsolutePath(), e);
             }
         }
+    }
+
+    private static String parseFileNameFromHeader(String contentDisposition) {
+        if (contentDisposition == null) return null;
+        if (contentDisposition.contains("filename=")) {
+            int index = contentDisposition.indexOf("filename=");
+            String fileName = contentDisposition.substring(index + 9).trim().replace("\"", "");
+            if (fileName.contains(";")) {
+                fileName = fileName.substring(0, fileName.indexOf(";")).trim();
+            }
+            return URLDecoder.decode(fileName, StandardCharsets.UTF_8);
+        }
+        return null;
     }
 
     private static List<String> getOrderListFromLMTrackingNo(
@@ -216,8 +226,12 @@ public class ApiCalling {
                 .get("/api/v2/apps/process/outbound/salesorder/search_order");
 
         if (searchOrderResponse.getStatusCode() != 200) {
-            throw new RuntimeException("Failed to search Order. API status code "
-                    + searchOrderResponse.getStatusCode());
+            throw new RuntimeException("Failed to search Order. API status code " + searchOrderResponse.getStatusCode());
+        }
+
+        List<Map<String, Object>> searchList = searchOrderResponse.jsonPath().getList("data.list");
+        if (searchList == null || searchList.isEmpty()) {
+            return Collections.emptyList();
         }
 
         String orderNumber = searchOrderResponse.jsonPath().getString("data.list[0].order_number");
@@ -227,11 +241,13 @@ public class ApiCalling {
                 .get("/api/v2/apps/process/outbound/salesorder/get_order_detail");
 
         if (getTaskIdResponse.getStatusCode() != 200) {
-            throw new RuntimeException("Failed to get Order detail. API status code "
-                    + getTaskIdResponse.getStatusCode());
+            throw new RuntimeException("Failed to get Order detail. API status code " + getTaskIdResponse.getStatusCode());
         }
 
         String taskId = getTaskIdResponse.jsonPath().getString("data.pickup_id");
+        if (taskId == null) {
+            return Collections.emptyList();
+        }
 
         Map<String, Object> queryParams2 = new HashMap<>();
         queryParams2.put("is_get_total", 1);
@@ -246,13 +262,10 @@ public class ApiCalling {
                 .get("/api/v2/apps/process/taskcenter/checkingtask/search_checking_task");
 
         if (searchCheckingTaskResponse.getStatusCode() != 200) {
-            throw new RuntimeException("Failed to search Checking Task. API status code "
-                    + searchCheckingTaskResponse.getStatusCode());
+            throw new RuntimeException("Failed to search Checking Task. API status code " + searchCheckingTaskResponse.getStatusCode());
         }
 
-        List<String> taskNumbers = searchCheckingTaskResponse.jsonPath()
-                .getList("data.list.task_number", String.class);
-
+        List<String> taskNumbers = searchCheckingTaskResponse.jsonPath().getList("data.list.task_number", String.class);
         return taskNumbers != null ? taskNumbers : Collections.emptyList();
     }
 
@@ -262,63 +275,99 @@ public class ApiCalling {
                 .get("/api/v2/apps/process/taskcenter/checkingtask/get_checking_task_detail");
 
         if (response.getStatusCode() != 200) {
-            throw new RuntimeException("Failed to get Checking Task Detail. API status code "
-                    + response.getStatusCode());
+            throw new RuntimeException("Failed to get Checking Task Detail. API status code " + response.getStatusCode());
         }
 
         return response;
     }
 
-    public static void displayRePrintOrderFromLMTrackingNo(
+    private static List<RePrintOrderInfo> getRePrintOrders(
             Map<String, String> cookies, String begTime, String endTime, String lmTrackingNo) {
 
         List<String> orderList = getOrderListFromLMTrackingNo(cookies, begTime, endTime, lmTrackingNo);
+        List<RePrintOrderInfo> result = new ArrayList<>();
 
-        DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss")
-                .withZone(ZoneId.of("Asia/Ho_Chi_Minh"));
+        if (orderList.isEmpty()) return null;
 
         for (String task : orderList) {
             Response response = getCheckingTaskDetail(cookies, task);
-
             Integer printAwbCount = response.jsonPath().get("data.print_awb_count");
 
             if (printAwbCount != null && printAwbCount > 1) {
                 String orderNumber = response.jsonPath().get("data.order_info.lm_tracking_no");
+                List<Map<String, Object>> printLogsRaw = response.jsonPath().getList("data.print_awb_log_list");
 
-                List<Map<String, Object>> printLogs = response.jsonPath().getList("data.print_awb_log_list");
-
-                System.out.println(ANSI_YELLOW + "==================================================");
-                System.out.printf("LM Tracking No: %s (Print count: %s)\n",
-                        ANSI_CYAN + orderNumber + ANSI_YELLOW, ANSI_CYAN + printAwbCount + ANSI_YELLOW);
-                System.out.println("Print log:");
-
-                if (printLogs != null && !printLogs.isEmpty()) {
-                    for (Map<String, Object> log : printLogs) {
+                List<RePrintOrderInfo.PrintLog> printLogs = new ArrayList<>();
+                if (printLogsRaw != null) {
+                    for (Map<String, Object> log : printLogsRaw) {
                         Number ctimeNum = (Number) log.get("ctime");
                         String operator = (String) log.get("operator");
 
-                        String timeFormatted = "N/A";
-                        if (ctimeNum != null) {
-                            timeFormatted = timeFormatter.format(Instant.ofEpochSecond(ctimeNum.longValue()));
-                        }
-
-                        System.out.printf("   - %s | Operator: %s\n", timeFormatted, operator);
+                        String timeFormatted = (ctimeNum != null)
+                                ? TIME_FORMATTER.format(Instant.ofEpochSecond(ctimeNum.longValue()))
+                                : "N/A";
+                        printLogs.add(new RePrintOrderInfo.PrintLog(timeFormatted, operator));
                     }
-                } else {
-                    System.out.println("   - No log available");
                 }
-                System.out.println();
+
+                result.add(new RePrintOrderInfo(orderNumber, printAwbCount, printLogs));
             }
+        }
+
+        return result;
+    }
+
+    public static void printToConsoleRePrintOrder(
+            Map<String, String> cookies, String begTime, String endTime, String lmTrackingNo) {
+
+        List<RePrintOrderInfo> orders = getRePrintOrders(cookies, begTime, endTime, lmTrackingNo);
+
+        for (RePrintOrderInfo order : orders) {
+            System.out.println(ANSI_YELLOW + "==================================================");
+            System.out.printf("LM Tracking No: %s (Print count: %s)\n",
+                    ANSI_CYAN + order.getOrderNumber() + ANSI_YELLOW,
+                    ANSI_CYAN + order.getPrintCount() + ANSI_YELLOW);
+            System.out.println("Print log:");
+
+            if (!order.getPrintLogs().isEmpty()) {
+                for (RePrintOrderInfo.PrintLog log : order.getPrintLogs()) {
+                    System.out.printf("   - %s | Operator: %s\n", log.getTimeFormatted(), log.getOperator());
+                }
+            } else {
+                System.out.println("   - No log available");
+            }
+            System.out.println();
         }
     }
 
-//    public static void main(String[] args) {
-//        displayRePrintOrderFromLMTrackingNo(
-//                CookiesConfig.loadCookies("669432", "VNDL"),
-//                "2026/07/19 18:00:00",
-//                "2026/07/24 18:00:00",
-//                "SPXVN062524848687"
-//        );
-//    }
+    public static String getRePrintOrderAsString(
+            Map<String, String> cookies, String begTime, String endTime, String lmTrackingNo) {
 
+        List<RePrintOrderInfo> orders = getRePrintOrders(cookies, begTime, endTime, lmTrackingNo);
+
+        if (orders == null) {
+            return "Time Range / Warehouse / LM Tracking Number invalid! Please check again.";
+        } else if (orders.isEmpty()) {
+            return "No Reprint Order in same packing task.";
+        }
+
+        StringBuilder result = new StringBuilder();
+
+        for (RePrintOrderInfo order : orders) {
+            result.append("LM Tracking No: ").append(order.getOrderNumber())
+                    .append(" (Print count: ").append(order.getPrintCount()).append(")\n");
+            result.append("Print log:\n");
+
+            if (!order.getPrintLogs().isEmpty()) {
+                for (RePrintOrderInfo.PrintLog log : order.getPrintLogs()) {
+                    result.append(String.format("   - %s | Operator: %s\n", log.getTimeFormatted(), log.getOperator()));
+                }
+            } else {
+                result.append("   - No log available\n");
+            }
+            result.append("\n");
+        }
+
+        return result.toString();
+    }
 }

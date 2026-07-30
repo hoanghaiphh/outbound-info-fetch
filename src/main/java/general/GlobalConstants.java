@@ -1,6 +1,7 @@
 package general;
 
 import java.io.File;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.List;
@@ -43,8 +44,12 @@ public class GlobalConstants {
     );
 
     public static final String DATE_TIME_PATTERN = "yyyy/MM/dd HH:mm:ss";
-    public static final String TIME_ONLY_PATTERN = "HH:mm:ss";
     public static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern(DATE_TIME_PATTERN);
-    public static final DateTimeFormatter TIME_ONLY_FORMATTER = DateTimeFormatter.ofPattern(TIME_ONLY_PATTERN);
+
+    public static final DateTimeFormatter TIME_FORMATTER
+            = DateTimeFormatter.ofPattern("HH:mm:ss").withZone(ZoneId.of("Asia/Ho_Chi_Minh"));
+
+    public static final String BACKUP_GROUP_ID = "MDI5NTU5MzE4NTU2";
+    public static final String AMON_GROUP_ID = "MzE3MjI0MjY1MTEw";
 
 }

@@ -8,7 +8,6 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeParseException;
 import java.util.Map;
 import java.util.Scanner;
-import java.util.concurrent.*;
 
 import static general.GlobalConstants.*;
 import static general.GlobalConstants.DATE_TIME_FORMATTER;
@@ -100,7 +99,7 @@ public class QueryRePrint {
                 cookies = CookiesConfig.loadCookies(username, "VNDL");
             }
 
-            ApiCalling.displayRePrintOrderFromLMTrackingNo(cookies, begTime, endTime, lmTrackingNo);
+            ApiCalling.printToConsoleRePrintOrder(cookies, begTime, endTime, lmTrackingNo);
 
         } catch (Exception e) {
             throw new RuntimeException(e);

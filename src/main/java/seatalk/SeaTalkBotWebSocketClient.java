@@ -95,7 +95,7 @@ public class SeaTalkBotWebSocketClient implements WebSocket.Listener {
                     System.err.println("[SeaTalk WS] Session kicked by server: " + env.message);
                     close();
                 }
-                case "pong" -> System.out.println("[SeaTalk WS] Connection still alive ... ");
+                case "pong" -> {}
                 default -> System.out.println("[SeaTalk WS] Received unknown CMD: " + env.cmd);
             }
         } catch (Exception e) {

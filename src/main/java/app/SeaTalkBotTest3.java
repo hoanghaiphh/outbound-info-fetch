@@ -35,7 +35,7 @@ public class SeaTalkBotTest3 {
         String appId = props.getProperty("seatalk.app_id");
         String appSecret = props.getProperty("seatalk.app_secret");
 
-        System.out.println(">>> Initializing WebSocket Client for App ID: " + appId);
+        System.out.println("Initializing WebSocket Client for App ID: " + appId);
 
         SeaTalkBotWebSocketClient wsClient = new SeaTalkBotWebSocketClient(
                 appId,
@@ -54,50 +54,60 @@ public class SeaTalkBotTest3 {
 
     @SuppressWarnings("unchecked")
     private static void handleIncomingEvent(String eventType, Map<String, Object> eventData) {
-        if ("message_from_bot_subscriber".equals(eventType)) {
+        if (eventData == null) return;
 
-            Map<String, Object> eventObj = (Map<String, Object>) eventData.get("event");
-            if (eventObj == null) return;
+        Map<String, Object> eventObj = (Map<String, Object>) eventData.get("event");
+        if (eventObj == null) return;
 
-            Object seatalkIdObj = eventObj.get("seatalk_id");
-            String seatalkId = seatalkIdObj != null ? String.valueOf(seatalkIdObj) : null;
-            String email = (String) eventObj.get("email");
+        String seatalkId = null;
+        String email = null;
+        String content = "";
 
-            Map<String, Object> messageObj = (Map<String, Object>) eventObj.get("message");
-            if (messageObj == null) return;
+        switch (eventType) {
+            case "message_from_bot_subscriber": {
+                Object seatalkIdObj = eventObj.get("seatalk_id");
+                seatalkId = seatalkIdObj != null ? String.valueOf(seatalkIdObj) : null;
+                email = (String) eventObj.get("email");
 
-            String tag = (String) messageObj.get("tag");
-
-            if ("text".equals(tag)) {
-                Map<String, Object> textObj = (Map<String, Object>) messageObj.get("text");
-                String content = textObj != null ? ((String) textObj.get("content")).trim() : "";
-
-                System.out.printf("[New message] From %s (%s): %s%n", email, seatalkId, content);
-                executeCommand(seatalkId, content);
+                Map<String, Object> messageObj = (Map<String, Object>) eventObj.get("message");
+                if (messageObj != null && "text".equals(messageObj.get("tag"))) {
+                    Map<String, Object> textObj = (Map<String, Object>) messageObj.get("text");
+                    if (textObj != null && textObj.get("content") != null) {
+                        content = ((String) textObj.get("content")).trim();
+                    }
+                }
+                break;
             }
+
+            case "new_mentioned_message_received_from_group_chat": {
+                Map<String, Object> messageObj = (Map<String, Object>) eventObj.get("message");
+                if (messageObj == null) return;
+
+                Map<String, Object> senderObj = (Map<String, Object>) messageObj.get("sender");
+                if (senderObj != null) {
+                    Object seatalkIdObj = senderObj.get("seatalk_id");
+                    seatalkId = seatalkIdObj != null ? String.valueOf(seatalkIdObj) : null;
+                    email = (String) senderObj.get("email");
+                }
+
+                if ("text".equals(messageObj.get("tag"))) {
+                    Map<String, Object> textObj = (Map<String, Object>) messageObj.get("text");
+                    if (textObj != null && textObj.get("plain_text") != null) {
+                        content = ((String) textObj.get("plain_text")).trim();
+
+                        content = content.replaceAll("^@[^\\s]+\\s*", "").trim();
+                    }
+                }
+                break;
+            }
+
+            default: return;
         }
 
-        if ("new_mentioned_message_received_from_group_chat".equals(eventType)) {
-
-            Map<String, Object> eventObj = (Map<String, Object>) eventData.get("event");
-            if (eventObj == null) return;
-
-//            Object seatalkIdObj = eventObj.get("seatalk_id");
-//            String seatalkId = seatalkIdObj != null ? String.valueOf(seatalkIdObj) : null;
-//            String email = (String) eventObj.get("email");
-
-            Map<String, Object> messageObj = (Map<String, Object>) eventObj.get("message");
-            if (messageObj == null) return;
-
-            String tag = (String) messageObj.get("tag");
-
-            if ("text".equals(tag)) {
-                Map<String, Object> textObj = (Map<String, Object>) messageObj.get("text");
-                String content = textObj != null ? ((String) textObj.get("plain_text")).trim() : "";
-
-//                System.out.printf("[New message] From %s (%s): %s%n", email, seatalkId, content);
-                executeCommand("seatalkId", content);
-            }
+        if (seatalkId != null && !content.isEmpty()) {
+            System.out.printf("[New Message] Event: %s | From: %s (%s) | Content: %s%n",
+                    eventType, email, seatalkId, content);
+            executeCommand(seatalkId, content);
         }
     }
 
@@ -107,7 +117,6 @@ public class SeaTalkBotTest3 {
         if (seatalkId != null && reformatContent.contains("reprint")) {
             executeRePrintCommand(reformatContent);
         }
-
     }
 
     private static void executeRePrintCommand(String cmd) {
@@ -148,13 +157,13 @@ public class SeaTalkBotTest3 {
                 endTime = timeRange[1];
             }
 
-            if (warehouse == null) {
-                seatalk.sendMsgToGroup(AMON_GROUP_ID, "Please input Warehouse!");
+            if (lmTrackingNo == null) {
+                seatalk.sendMsgToGroup(AMON_GROUP_ID, "Please input LM Tracking Number!");
                 return;
             }
 
-            if (lmTrackingNo == null) {
-                seatalk.sendMsgToGroup(AMON_GROUP_ID, "Please input LM Tracking Number!");
+            if (warehouse == null) {
+                seatalk.sendMsgToGroup(AMON_GROUP_ID, "Please input Warehouse!");
                 return;
             }
 

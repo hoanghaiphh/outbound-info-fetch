@@ -1,29 +1,39 @@
 package app;
 
 import general.CommonHelper;
+import seatalk.ReportImgGenerator;
 import seatalk.SeaTalkBotWebSocketClient;
 import seatalk.SeaTalkService;
 import wms.ApiCalling;
 import wms.CookiesConfig;
 
 import java.io.InputStream;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
+import java.util.concurrent.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static general.GlobalConstants.*;
 
-public class SeaTalkBotTest3 {
+public class SeaTalkBotResponse {
 
     private static final String CONFIG_FILE_PATH = "creds/amon.properties";
     private static final SeaTalkService seatalk = new SeaTalkService();
+    // private static final Pattern ARG_PATTERN = Pattern.compile("--(?<key>\\w+)='(?<value>[^']*)'");
+    private static final Pattern ARG_PATTERN = Pattern.compile("--(?<key>\\w+)\\s*=\\s*'(?<value>[^']*)'");
+
+    private static final ExecutorService executor = Executors.newFixedThreadPool(4, r -> {
+        Thread t = new Thread(r);
+        t.setDaemon(true);
+        t.setName("SeatalkBot-Worker");
+        return t;
+    });
 
     public static void main(String[] args) {
 
         Properties props = new Properties();
-        try (InputStream input = SeaTalkBotTest.class.getClassLoader().getResourceAsStream(CONFIG_FILE_PATH)) {
+        try (InputStream input = SeaTalkBotResponse.class.getClassLoader().getResourceAsStream(CONFIG_FILE_PATH)) {
             if (input == null) {
                 return;
             }
@@ -40,15 +50,18 @@ public class SeaTalkBotTest3 {
         SeaTalkBotWebSocketClient wsClient = new SeaTalkBotWebSocketClient(
                 appId,
                 appSecret,
-                SeaTalkBotTest3::handleIncomingEvent
+                SeaTalkBotResponse::handleIncomingEvent
         );
+
+        Runtime.getRuntime().addShutdownHook(new Thread(executor::shutdown));
 
         try {
             System.out.println("Connecting to WebSocket...");
             wsClient.connect();
             Thread.currentThread().join();
         } catch (InterruptedException e) {
-            throw new RuntimeException(e);
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Application interrupted", e);
         }
     }
 
@@ -101,30 +114,129 @@ public class SeaTalkBotTest3 {
                 break;
             }
 
-            default: return;
+            default:
+                return;
         }
 
         if (seatalkId != null && !content.isEmpty()) {
             System.out.printf("[New Message] Event: %s | From: %s (%s) | Content: %s%n",
                     eventType, email, seatalkId, content);
-            executeCommand(seatalkId, content);
+
+            final String finalSeatalkId = seatalkId;
+            final String finalContent = content;
+
+            executor.submit(() -> executeCommand(finalSeatalkId, finalContent));
         }
     }
 
     private static void executeCommand(String seatalkId, String content) {
-        String reformatContent = content.toLowerCase().trim();
+        if (seatalkId == null) return;
 
-        if (seatalkId != null && reformatContent.contains("reprint")) {
-            executeRePrintCommand(reformatContent);
+        content = content.trim();
+
+        if (content.toLowerCase().contains("reprint")) {
+            executeRePrintCommand(content);
+        } else if (content.toLowerCase().contains("backlog")) {
+            executeBacklogCommand(content);
+        } else if (content.equalsIgnoreCase("test")) {
+            seatalk.sendMsgToGroup(AMON_GROUP_ID, "Don't ask us why we're taking such risks. Life often requires some excitement, joy, and anticipation.");
+        } else {
+            seatalk.sendMsgToGroup(AMON_GROUP_ID, "What the f*ck are you talking about?");
+        }
+    }
+
+    private static void executeBacklogCommand(String cmd) {
+        // backlog --from='2026/07/19 18:00:00' --to='2026/07/20 18:00:00'
+
+        try {
+            Matcher matcher = ARG_PATTERN.matcher(cmd);
+
+            String begTime = null;
+            String endTime = null;
+
+            while (matcher.find()) {
+                String key = matcher.group("key");
+                String value = matcher.group("value");
+
+                switch (key.toLowerCase()) {
+                    case "from":
+                        begTime = value;
+                        break;
+                    case "to":
+                        endTime = value;
+                        break;
+                }
+            }
+
+            if (begTime == null || endTime == null) {
+                seatalk.sendMsgToGroup(AMON_GROUP_ID, "Please input range of time!");
+                return;
+            }
+
+            final String begTimeFinal = begTime;
+            final String endTimeFinal = endTime;
+
+            seatalk.sendMsgToGroup(AMON_GROUP_ID, "Im thinking... Please wait a second...");
+
+            Map<String, String> cookiesB = CookiesConfig.loadCookies(DEFAULT_USER, "VNDB");
+            Map<String, String> cookiesL = CookiesConfig.loadCookies(DEFAULT_USER, "VNDL");
+
+            synchronized (SeaTalkBotResponse.class) {
+                CommonHelper.cleanUpDirectory(OUTPUT_DIR);
+            }
+
+            CompletableFuture<Void> taskB = CompletableFuture.runAsync(() -> {
+                try {
+                    ApiCalling.generateReportFile(begTimeFinal, endTimeFinal, cookiesB);
+                    ApiCalling.downloadReportFile(cookiesB, "VNDB");
+                } catch (Exception e) {
+                    throw new CompletionException("Failed to fetch VNDB report data!", e);
+                }
+            }, executor);
+
+            CompletableFuture<Void> taskL = CompletableFuture.runAsync(() -> {
+                try {
+                    ApiCalling.generateReportFile(begTimeFinal, endTimeFinal, cookiesL);
+                    ApiCalling.downloadReportFile(cookiesL, "VNDL");
+                } catch (Exception e) {
+                    throw new CompletionException("Failed to fetch VNDL report data!", e);
+                }
+            }, executor);
+
+            CompletableFuture.allOf(taskB, taskL).get(10, TimeUnit.MINUTES);
+
+            String result = ReportImgGenerator.createReportImage();
+
+            seatalk.sendMsgToGroup(AMON_GROUP_ID, "Backlog:" +
+                    "\nFrom: " + begTime +
+                    "\nTo: " + endTime);
+
+            seatalk.sendImgToGroup(AMON_GROUP_ID, result);
+
+        } catch (TimeoutException e) {
+            System.err.println("[ERROR] Execution timed out (exceeded 10 minutes threshold). Skipping current cycle.");
+
+        } catch (ExecutionException e) {
+            Throwable rootCause = e.getCause() != null ? e.getCause() : e;
+            System.err.println("[ERROR] Task execution failed: " + rootCause.getMessage());
+            rootCause.printStackTrace();
+
+        } catch (InterruptedException e) {
+            System.err.println("[WARN] Worker thread execution was interrupted during synchronization wait.");
+            Thread.currentThread().interrupt();
+
+        } catch (Exception e) {
+            System.err.println("[CRITICAL ERROR] Unhandled exception occurred in current cycle: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
     private static void executeRePrintCommand(String cmd) {
         // reprint --from='2026/07/19 18:00:00' --to='2026/07/20 18:00:00' --warehouse='L' --lmtracking='SPXVN062524848687'
+
         try {
 
-            Pattern pattern = Pattern.compile("--(?<key>\\w+)='(?<value>[^']*)'");
-            Matcher matcher = pattern.matcher(cmd);
+            Matcher matcher = ARG_PATTERN.matcher(cmd);
 
             String begTime = null;
             String endTime = null;
@@ -135,7 +247,7 @@ public class SeaTalkBotTest3 {
                 String key = matcher.group("key");
                 String value = matcher.group("value");
 
-                switch (key) {
+                switch (key.toLowerCase()) {
                     case "from":
                         begTime = value;
                         break;
@@ -152,7 +264,7 @@ public class SeaTalkBotTest3 {
             }
 
             if (begTime == null || endTime == null) {
-                String [] timeRange = CommonHelper.getWorkingTimeRange(false); // todo
+                String[] timeRange = CommonHelper.getWorkingTimeRange(false); // todo: ???
                 begTime = timeRange[0];
                 endTime = timeRange[1];
             }
@@ -167,10 +279,7 @@ public class SeaTalkBotTest3 {
                 return;
             }
 
-            if (!CookiesConfig.isCookiesValid(DEFAULT_USER, "VNDB")
-                    || !CookiesConfig.isCookiesValid(DEFAULT_USER, "VNDL")) {
-                CookiesConfig.loginAndSaveCookies(DEFAULT_USER, DEFAULT_PW);
-            }
+            seatalk.sendMsgToGroup(AMON_GROUP_ID, "Im thinking...\nPlease wait a second...");
 
             Map<String, String> cookies;
             if (warehouse.equalsIgnoreCase("B")) {
@@ -185,10 +294,11 @@ public class SeaTalkBotTest3 {
 
             String result = ApiCalling.getRePrintOrderAsString(cookies, begTime, endTime, lmTrackingNo);
 
-            seatalk.sendMsgToGroup(AMON_GROUP_ID,
-                    "Re-print packing task:\n" +
-                            "From: " + begTime + " - To: " + endTime + "\n" +
-                            "LM Tracking No: " + lmTrackingNo.toUpperCase());
+            seatalk.sendMsgToGroup(AMON_GROUP_ID, "Re-print Order in same task:" +
+                    "\nFrom: " + begTime +
+                    "\nTo: " + endTime +
+                    "\nLM Tracking No: " + lmTrackingNo.toUpperCase());
+
             seatalk.sendMsgToGroup(AMON_GROUP_ID, result);
 
         } catch (Exception e) {

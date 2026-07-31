@@ -5,13 +5,13 @@ import seatalk.SeaTalkBotWebSocketClient;
 import java.io.InputStream;
 import java.util.Properties;
 
-public class SeaTalkBotTest {
+public class SeaTalkBotCheck {
 
     private static final String CONFIG_FILE_PATH = "creds/amon.properties";
 
     public static void main(String[] args) {
         Properties props = new Properties();
-        try (InputStream input = SeaTalkBotTest.class.getClassLoader().getResourceAsStream(CONFIG_FILE_PATH)) {
+        try (InputStream input = SeaTalkBotCheck.class.getClassLoader().getResourceAsStream(CONFIG_FILE_PATH)) {
             if (input == null) {
                 return;
             }

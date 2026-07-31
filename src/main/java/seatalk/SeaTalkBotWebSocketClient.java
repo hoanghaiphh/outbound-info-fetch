@@ -10,8 +10,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.function.BiConsumer;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import seatalk.SeaTalkWsModels.*;
@@ -24,40 +25,83 @@ public class SeaTalkBotWebSocketClient implements WebSocket.Listener {
     private final String appSecret;
     private final String wsUrl;
     private final ObjectMapper objectMapper;
-    private final BiConsumer<String, Map<String, Object>> eventHandler;
+    private final java.util.function.BiConsumer<String, Map<String, Object>> eventHandler;
 
     private WebSocket webSocket;
     private String registeredToken;
 
-    private final ScheduledExecutorService scheduler =
-            Executors.newSingleThreadScheduledExecutor(Thread.ofVirtual().factory());
+    private final AtomicBoolean isConnecting = new AtomicBoolean(false);
+    private final AtomicBoolean isClosedManual = new AtomicBoolean(false);
+
+    private ScheduledExecutorService scheduler;
+    private ScheduledFuture<?> heartbeatTask;
 
     private final StringBuilder messageBuffer = new StringBuilder();
 
     public SeaTalkBotWebSocketClient(String appId, String appSecret,
-                                     BiConsumer<String, Map<String, Object>> eventHandler) {
+                                     java.util.function.BiConsumer<String, Map<String, Object>> eventHandler) {
         this(appId, appSecret, DEFAULT_WS_URL, eventHandler);
     }
 
     public SeaTalkBotWebSocketClient(String appId, String appSecret, String wsUrl,
-                                     BiConsumer<String, Map<String, Object>> eventHandler) {
+                                     java.util.function.BiConsumer<String, Map<String, Object>> eventHandler) {
         this.appId = appId;
         this.appSecret = appSecret;
         this.wsUrl = wsUrl;
         this.eventHandler = eventHandler;
         this.objectMapper = new ObjectMapper();
+        initScheduler();
     }
 
-    public void connect() {
-        HttpClient client = HttpClient.newBuilder()
-                .executor(Executors.newVirtualThreadPerTaskExecutor())
-                .connectTimeout(Duration.ofSeconds(15))
-                .build();
+    private synchronized void initScheduler() {
+        if (scheduler == null || scheduler.isShutdown()) {
+            scheduler = Executors.newSingleThreadScheduledExecutor(Thread.ofVirtual().factory());
+        }
+    }
 
-        client.newWebSocketBuilder()
-                .connectTimeout(Duration.ofSeconds(15))
-                .buildAsync(URI.create(wsUrl), this)
-                .join();
+    public synchronized void connect() {
+        if (isClosedManual.get()) return;
+        if (isConnecting.get()) return;
+
+        isConnecting.set(true);
+        initScheduler();
+
+        System.out.println("[SeaTalk WS] Connecting to " + wsUrl + "...");
+
+        try {
+            HttpClient client = HttpClient.newBuilder()
+                    .executor(Executors.newVirtualThreadPerTaskExecutor())
+                    .connectTimeout(Duration.ofSeconds(15))
+                    .build();
+
+            client.newWebSocketBuilder()
+                    .connectTimeout(Duration.ofSeconds(15))
+                    .buildAsync(URI.create(wsUrl), this)
+                    .whenComplete((ws, error) -> {
+                        isConnecting.set(false);
+                        if (error != null) {
+                            System.err.println("[SeaTalk WS] Connection build failed: " + error.getMessage());
+                            scheduleReconnect();
+                        }
+                    });
+        } catch (Exception e) {
+            isConnecting.set(false);
+            System.err.println("[SeaTalk WS] Failed to initiate connection: " + e.getMessage());
+            scheduleReconnect();
+        }
+    }
+
+    private void scheduleReconnect() {
+        if (isClosedManual.get()) return;
+
+        stopHeartbeat();
+        registeredToken = null;
+
+        System.out.println("[SeaTalk WS] Will attempt reconnect in 5 seconds...");
+        scheduler.schedule(() -> {
+            System.out.println("[SeaTalk WS] Attempting reconnecting...");
+            connect();
+        }, 5, TimeUnit.SECONDS);
     }
 
     @Override
@@ -95,7 +139,8 @@ public class SeaTalkBotWebSocketClient implements WebSocket.Listener {
                     System.err.println("[SeaTalk WS] Session kicked by server: " + env.message);
                     close();
                 }
-                case "pong" -> {}
+                case "pong" -> {
+                }
                 default -> System.out.println("[SeaTalk WS] Received unknown CMD: " + env.cmd);
             }
         } catch (Exception e) {
@@ -125,7 +170,7 @@ public class SeaTalkBotWebSocketClient implements WebSocket.Listener {
             startHeartbeat((long) intervalSeconds);
         } else {
             System.err.println("[SeaTalk WS] Register failed: " + env.message + " (Code: " + env.code + ")");
-            close();
+            scheduleReconnect();
         }
     }
 
@@ -143,10 +188,12 @@ public class SeaTalkBotWebSocketClient implements WebSocket.Listener {
         }
     }
 
-    private void startHeartbeat(long intervalSeconds) {
-        scheduler.scheduleAtFixedRate(() -> {
+    private synchronized void startHeartbeat(long intervalSeconds) {
+        stopHeartbeat();
+
+        heartbeatTask = scheduler.scheduleAtFixedRate(() -> {
             try {
-                if (registeredToken != null) {
+                if (registeredToken != null && webSocket != null) {
                     sendEnvelope(new Envelope("ping", Header.forPing(registeredToken)));
                 }
             } catch (Exception e) {
@@ -179,55 +226,36 @@ public class SeaTalkBotWebSocketClient implements WebSocket.Listener {
     @Override
     public CompletionStage<?> onClose(WebSocket webSocket, int statusCode, String reason) {
         System.out.println("[SeaTalk WS] Closed: " + statusCode + " / " + reason);
-        stopHeartbeat();
+        messageBuffer.setLength(0);
+
+        if (!isClosedManual.get()) {
+            scheduleReconnect();
+        }
         return CompletableFuture.completedFuture(null);
     }
 
     @Override
     public void onError(WebSocket webSocket, Throwable error) {
-        System.err.println("[SeaTalk WS] Error: " + error.getMessage());
+        System.err.println("[SeaTalk WS] Error occurred: " + error.getMessage());
+        if (!isClosedManual.get()) {
+            scheduleReconnect();
+        }
     }
 
     public void close() {
+        isClosedManual.set(true);
         stopHeartbeat();
+        if (scheduler != null) {
+            scheduler.shutdownNow();
+        }
         if (webSocket != null) {
             webSocket.sendClose(WebSocket.NORMAL_CLOSURE, "Closing").thenRun(() -> webSocket = null);
         }
     }
 
-    private void stopHeartbeat() {
-        scheduler.shutdownNow();
-    }
-
-    @SuppressWarnings("unchecked")
-    private void handleIncomingEvent(String eventType, Map<String, Object> eventData, String groupId) {
-        System.out.println("[SeaTalk WS] Received Event Type: " + eventType);
-
-        if ("message_from_bot_subscriber".equals(eventType)) {
-            Map<String, Object> message = (Map<String, Object>) eventData.get("message");
-            if (message == null) return;
-
-            String senderSeatalkId = (String) message.get("sender_seatalk_id");
-            String msgType = (String) message.get("msg_type");
-
-            if ("text".equals(msgType)) {
-                Map<String, Object> textObj = (Map<String, Object>) message.get("text");
-                String content = textObj != null ? ((String) textObj.get("content")).trim() : "";
-
-                System.out.println("Message from " + senderSeatalkId + ": " + content);
-
-                if ("test".equalsIgnoreCase(content)) {
-                    String result = executeTestLogic();
-
-                    SeaTalkService service = new SeaTalkService();
-                    service.sendMsgToGroup(groupId, result);
-                }
-            }
+    private synchronized void stopHeartbeat() {
+        if (heartbeatTask != null && !heartbeatTask.isCancelled()) {
+            heartbeatTask.cancel(true);
         }
-    }
-
-    private String executeTestLogic() {
-        System.out.println("[LOGIC] Đang chạy hàm test()...");
-        return "Executing successfully!\nServer time: " + java.time.LocalDateTime.now();
     }
 }

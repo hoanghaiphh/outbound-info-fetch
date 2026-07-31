@@ -346,9 +346,9 @@ public class ApiCalling {
         List<RePrintOrderInfo> orders = getRePrintOrders(cookies, begTime, endTime, lmTrackingNo);
 
         if (orders == null) {
-            return "Time Range / Warehouse / LM Tracking Number invalid! Please check again.";
+            return "Information invalid! Please check again.";
         } else if (orders.isEmpty()) {
-            return "No Reprint Order in same packing task.";
+            return "No Re-print Order in same task.";
         }
 
         StringBuilder result = new StringBuilder();

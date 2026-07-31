@@ -11,7 +11,7 @@ import java.util.concurrent.*;
 
 import static general.GlobalConstants.*;
 
-public class SeaTalkBot {
+public class SeaTalkBotAuto {
 
     private static final SeaTalkService seatalk = new SeaTalkService();
 
@@ -46,14 +46,9 @@ public class SeaTalkBot {
 
     private static void mainRun() {
         try {
-            String[] timeRange = CommonHelper.getWorkingTimeRange(false);
+            String[] timeRange = CommonHelper.getWorkingTimeRange(false); // todo: ???
             String begTime = timeRange[0];
             String endTime = timeRange[1];
-
-            if (!CookiesConfig.isCookiesValid(DEFAULT_USER, "VNDB")
-                    || !CookiesConfig.isCookiesValid(DEFAULT_USER, "VNDL")) {
-                CookiesConfig.loginAndSaveCookies(DEFAULT_USER, DEFAULT_PW);
-            }
 
             Map<String, String> cookiesB = CookiesConfig.loadCookies(DEFAULT_USER, "VNDB");
             Map<String, String> cookiesL = CookiesConfig.loadCookies(DEFAULT_USER, "VNDL");

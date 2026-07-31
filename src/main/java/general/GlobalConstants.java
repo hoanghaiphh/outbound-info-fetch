@@ -21,6 +21,7 @@ public class GlobalConstants {
 
     public static final String COOKIES_DIR = System.getProperty("user.dir") + File.separator + "cookies-store";
     public static final String OUTPUT_DIR = System.getProperty("user.dir") + File.separator + "output";
+    public static final String TMP_OUTPUT_DIR = System.getProperty("user.dir") + File.separator + "output-tmp";
 
     public static final Map<String, String> CREDENTIALS = Map.ofEntries(
             entry("669432", "AnhQuan@250621"),

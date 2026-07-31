@@ -13,14 +13,14 @@ import static general.GlobalConstants.*;
 
 public class ExcelHelper {
 
-    public static Map<String, Integer> getStatusCounts(String warehouse) {
+    public static Map<String, Integer> getStatusCounts(String warehouse, String parentDir) {
         Map<String, Integer> statusCounts = new HashMap<>();
         for (String status : STATUS_LIST) {
             statusCounts.put(status, 0);
         }
 
         Set<String> processedColB = new HashSet<>();
-        Path path = Paths.get(OUTPUT_DIR + File.separator + warehouse);
+        Path path = Paths.get(parentDir + File.separator + warehouse);
 
         if (!Files.exists(path) || !Files.isDirectory(path)) {
             System.err.printf("Reports directory for %s does not exist!", warehouse);
@@ -47,9 +47,9 @@ public class ExcelHelper {
         return statusCounts;
     }
 
-    public static void displayResultsInComparison() {
-        Map<String, Integer> countsVNDB = getStatusCounts("VNDB");
-        Map<String, Integer> countsVNDL = getStatusCounts("VNDL");
+    public static void displayResultsInComparison(String parentDir) {
+        Map<String, Integer> countsVNDB = getStatusCounts("VNDB", parentDir);
+        Map<String, Integer> countsVNDL = getStatusCounts("VNDL", parentDir);
 
         // %-20s: left alignment & width 20 chars - %15s: right alignment & width 15 chars
         System.out.println("\n---------------------------------------------");

@@ -122,7 +122,7 @@ public class ApiCalling {
         throw new RuntimeException("Timeout waiting for the report file to be generated!");
     }
 
-    public static void downloadReportFile(Map<String, String> cookies, String subDir) {
+    public static void downloadReportFile(Map<String, String> cookies, String subDir, String parentDir) {
         String downloadUrl = getDownloadUrl(cookies);
         Response response = requestSpec(cookies).get(downloadUrl);
 
@@ -132,7 +132,7 @@ public class ApiCalling {
 
         File targetDir = new File(subDir);
         if (!targetDir.isAbsolute()) {
-            targetDir = new File(OUTPUT_DIR, subDir);
+            targetDir = new File(parentDir, subDir);
         }
 
         if (!targetDir.exists()) {

@@ -89,14 +89,14 @@ public class QueryBacklog {
             Map<String, String> cookiesB = CookiesConfig.loadCookies(username, "VNDB");
             Map<String, String> cookiesL = CookiesConfig.loadCookies(username, "VNDL");
 
-            CommonHelper.cleanUpDirectory(OUTPUT_DIR);
+            CommonHelper.cleanUpDirectory(TMP_OUTPUT_DIR);
 
             String curTime = LocalDateTime.now().format(DATE_TIME_FORMATTER);
 
             CompletableFuture<Void> taskB = CompletableFuture.runAsync(() -> {
                 try {
                     ApiCalling.generateReportFile(begTime, endTime, cookiesB);
-                    ApiCalling.downloadReportFile(cookiesB, "VNDB");
+                    ApiCalling.downloadReportFile(cookiesB, "VNDB", TMP_OUTPUT_DIR);
                 } catch (Exception e) {
                     throw new CompletionException("Failed to fetch VNDB report data!", e);
                 }
@@ -105,7 +105,7 @@ public class QueryBacklog {
             CompletableFuture<Void> taskL = CompletableFuture.runAsync(() -> {
                 try {
                     ApiCalling.generateReportFile(begTime, endTime, cookiesL);
-                    ApiCalling.downloadReportFile(cookiesL, "VNDL");
+                    ApiCalling.downloadReportFile(cookiesL, "VNDL", TMP_OUTPUT_DIR);
                 } catch (Exception e) {
                     throw new CompletionException("Failed to fetch VNDL report data!", e);
                 }
@@ -113,7 +113,7 @@ public class QueryBacklog {
 
             CompletableFuture.allOf(taskB, taskL).get(10, TimeUnit.MINUTES);
 
-            ExcelHelper.displayResultsInComparison();
+            ExcelHelper.displayResultsInComparison(TMP_OUTPUT_DIR);
 
             System.out.println("From: " + ANSI_YELLOW + begTime + ANSI_RESET
                     + " - To: " + ANSI_YELLOW + endTime + ANSI_RESET);

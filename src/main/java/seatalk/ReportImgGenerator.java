@@ -28,9 +28,9 @@ public class ReportImgGenerator {
     private static final Color COLOR_ACTIVE_STATUS = new Color(0, 191, 255);
     private static final Color COLOR_NORMAL_STATUS = new Color(200, 200, 200);
 
-    public static String createReportImage() {
-        Map<String, Integer> countsVNDB = getStatusCounts("VNDB");
-        Map<String, Integer> countsVNDL = getStatusCounts("VNDL");
+    public static String createReportImage(String parentDir) {
+        Map<String, Integer> countsVNDB = getStatusCounts("VNDB", parentDir);
+        Map<String, Integer> countsVNDL = getStatusCounts("VNDL", parentDir);
 
         // 1. Tính toán kích thước ảnh trước
         int imageHeight = PADDING * 2 + 50 + (STATUS_LIST.size() * ROW_HEIGHT) + 50;

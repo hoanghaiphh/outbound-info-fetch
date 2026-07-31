@@ -176,19 +176,19 @@ public class SeaTalkBotResponse {
             final String begTimeFinal = begTime;
             final String endTimeFinal = endTime;
 
-            seatalk.sendMsgToGroup(AMON_GROUP_ID, "Im thinking... Please wait a second...");
+            seatalk.sendMsgToGroup(AMON_GROUP_ID, "Im thinking...\nPlease wait a second...");
 
             Map<String, String> cookiesB = CookiesConfig.loadCookies(DEFAULT_USER, "VNDB");
             Map<String, String> cookiesL = CookiesConfig.loadCookies(DEFAULT_USER, "VNDL");
 
             synchronized (SeaTalkBotResponse.class) {
-                CommonHelper.cleanUpDirectory(OUTPUT_DIR);
+                CommonHelper.cleanUpDirectory(TMP_OUTPUT_DIR);
             }
 
             CompletableFuture<Void> taskB = CompletableFuture.runAsync(() -> {
                 try {
                     ApiCalling.generateReportFile(begTimeFinal, endTimeFinal, cookiesB);
-                    ApiCalling.downloadReportFile(cookiesB, "VNDB");
+                    ApiCalling.downloadReportFile(cookiesB, "VNDB", TMP_OUTPUT_DIR);
                 } catch (Exception e) {
                     throw new CompletionException("Failed to fetch VNDB report data!", e);
                 }
@@ -197,7 +197,7 @@ public class SeaTalkBotResponse {
             CompletableFuture<Void> taskL = CompletableFuture.runAsync(() -> {
                 try {
                     ApiCalling.generateReportFile(begTimeFinal, endTimeFinal, cookiesL);
-                    ApiCalling.downloadReportFile(cookiesL, "VNDL");
+                    ApiCalling.downloadReportFile(cookiesL, "VNDL", TMP_OUTPUT_DIR);
                 } catch (Exception e) {
                     throw new CompletionException("Failed to fetch VNDL report data!", e);
                 }
@@ -205,7 +205,7 @@ public class SeaTalkBotResponse {
 
             CompletableFuture.allOf(taskB, taskL).get(10, TimeUnit.MINUTES);
 
-            String result = ReportImgGenerator.createReportImage();
+            String result = ReportImgGenerator.createReportImage(TMP_OUTPUT_DIR);
 
             seatalk.sendMsgToGroup(AMON_GROUP_ID, "Backlog:" +
                     "\nFrom: " + begTime +

@@ -346,7 +346,7 @@ public class ApiCalling {
         List<RePrintOrderInfo> orders = getRePrintOrders(cookies, begTime, endTime, lmTrackingNo);
 
         if (orders == null) {
-            return "Information invalid! Please check again.";
+            return "Parameters invalid!\nPlease check again.";
         } else if (orders.isEmpty()) {
             return "No Re-print Order in same task.";
         }
@@ -354,8 +354,8 @@ public class ApiCalling {
         StringBuilder result = new StringBuilder();
 
         for (RePrintOrderInfo order : orders) {
-            result.append("LM Tracking No: ").append(order.getOrderNumber())
-                    .append(" (Print count: ").append(order.getPrintCount()).append(")\n");
+            result.append("LM Tracking: **").append(order.getOrderNumber()).append("**")
+                    .append(" (Print count: **").append(order.getPrintCount()).append("**)\n");
             result.append("Print log:\n");
 
             if (!order.getPrintLogs().isEmpty()) {

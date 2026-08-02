@@ -176,7 +176,7 @@ public class SeaTalkBotResponse {
             final String begTimeFinal = begTime;
             final String endTimeFinal = endTime;
 
-            seatalk.sendMsgToGroup(AMON_GROUP_ID, "Im thinking...\nPlease wait a second...");
+            seatalk.sendMsgToGroup(AMON_GROUP_ID, "Im thinking ...\nPlease wait a second ...");
 
             Map<String, String> cookiesB = CookiesConfig.loadCookies(DEFAULT_USER, "VNDB");
             Map<String, String> cookiesL = CookiesConfig.loadCookies(DEFAULT_USER, "VNDL");
@@ -208,8 +208,8 @@ public class SeaTalkBotResponse {
             String result = ReportImgGenerator.createReportImage(TMP_OUTPUT_DIR);
 
             seatalk.sendMsgToGroup(AMON_GROUP_ID, "Backlog:" +
-                    "\nFrom: " + begTime +
-                    "\nTo: " + endTime);
+                    "\nFrom: **" + begTime + "**" +
+                    "\nTo: **" + endTime + "**");
 
             seatalk.sendImgToGroup(AMON_GROUP_ID, result);
 
@@ -279,7 +279,7 @@ public class SeaTalkBotResponse {
                 return;
             }
 
-            seatalk.sendMsgToGroup(AMON_GROUP_ID, "Im thinking...\nPlease wait a second...");
+            seatalk.sendMsgToGroup(AMON_GROUP_ID, "Im thinking ...\nPlease wait a second ...");
 
             Map<String, String> cookies;
             if (warehouse.equalsIgnoreCase("B")) {
@@ -295,11 +295,10 @@ public class SeaTalkBotResponse {
             String result = ApiCalling.getRePrintOrderAsString(cookies, begTime, endTime, lmTrackingNo);
 
             seatalk.sendMsgToGroup(AMON_GROUP_ID, "Re-print Order in same task:" +
-                    "\nFrom: " + begTime +
-                    "\nTo: " + endTime +
-                    "\nLM Tracking No: " + lmTrackingNo.toUpperCase());
-
-            seatalk.sendMsgToGroup(AMON_GROUP_ID, result);
+                    "\nFrom: **" + begTime + "**" +
+                    "\nTo: **" + endTime + "**" +
+                    "\nLM Tracking: **" + lmTrackingNo.toUpperCase() + "**" +
+                    "\n\n" + result);
 
         } catch (Exception e) {
             System.err.println("[CRITICAL ERROR] Unhandled exception occurred in current cycle: " + e.getMessage());

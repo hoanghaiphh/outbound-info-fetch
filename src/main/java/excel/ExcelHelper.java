@@ -1,6 +1,8 @@
 package excel;
 
 import com.alibaba.excel.EasyExcel;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.io.File;
 import java.nio.file.Files;
@@ -13,6 +15,8 @@ import static general.GlobalConstants.*;
 
 public class ExcelHelper {
 
+    private static final Logger log = LogManager.getLogger(ExcelHelper.class);
+
     public static Map<String, Integer> getStatusCounts(String warehouse, String parentDir) {
         Map<String, Integer> statusCounts = new HashMap<>();
         for (String status : STATUS_LIST) {
@@ -23,7 +27,7 @@ public class ExcelHelper {
         Path path = Paths.get(parentDir + File.separator + warehouse);
 
         if (!Files.exists(path) || !Files.isDirectory(path)) {
-            System.err.printf("Reports directory for %s does not exist!", warehouse);
+            log.error("Reports directory for {} does not exist!", warehouse);
             return statusCounts;
         }
 
@@ -37,11 +41,11 @@ public class ExcelHelper {
                                     .headRowNumber(1)
                                     .doRead();
                         } catch (Exception e) {
-                            System.err.printf("File reading error: %s \n %s", file.getFileName(), e.getMessage());
+                            log.error("File reading error: {} \n {}", file.getFileName(), e.getMessage());
                         }
                     });
         } catch (Exception e) {
-            System.err.printf("Failed to read %s Reports directory! \n %s", warehouse, e.getMessage());
+            log.error("Failed to read {} Reports directory! \n {}", warehouse, e.getMessage());
         }
 
         return statusCounts;
@@ -86,6 +90,32 @@ public class ExcelHelper {
         System.out.println("---------------------------------------------");
         System.out.printf("| %-15s | %10d | %-10d |\n", "TOTAL ex.Cancel", totalVNDB, totalVNDL);
         System.out.println("---------------------------------------------");
+    }
+
+    public static int[] getOrders(String parentDir) {
+        Map<String, Integer> countsVNDB = getStatusCounts("VNDB", parentDir);
+        Map<String, Integer> countsVNDL = getStatusCounts("VNDL", parentDir);
+
+        int pickedVNDB = 0;
+        int pickedVNDL = 0;
+        int packedVNDB = 0;
+        int packedVNDL = 0;
+
+        for (String status : Arrays
+                .asList("Picked", "Pick Fail", "Checking", "Checked", "Packing", "Packed", "Shipping", "Outbound")) {
+            int valVNDB = countsVNDB.getOrDefault(status, 0);
+            int valVNDL = countsVNDL.getOrDefault(status, 0);
+
+            pickedVNDB += valVNDB;
+            pickedVNDL += valVNDL;
+
+            if (status.equals("Packed") || status.equals("Shipping") || status.equals("Outbound")) {
+                packedVNDB += valVNDB;
+                packedVNDL += valVNDL;
+            }
+        }
+
+        return new int[]{pickedVNDB, pickedVNDL, packedVNDB, packedVNDL};
     }
 
 }

@@ -1,6 +1,8 @@
 package app;
 
 import general.CommonHelper;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import seatalk.ReportImgGenerator;
 import seatalk.SeaTalkBotWebSocketClient;
 import seatalk.SeaTalkService;
@@ -17,6 +19,8 @@ import java.util.regex.Pattern;
 import static general.GlobalConstants.*;
 
 public class SeaTalkBotResponse {
+
+    private static final Logger log = LogManager.getLogger(SeaTalkBotResponse.class);
 
     private static final String CONFIG_FILE_PATH = "creds/amon.properties";
     private static final SeaTalkService seatalk = new SeaTalkService();
@@ -45,7 +49,7 @@ public class SeaTalkBotResponse {
         String appId = props.getProperty("seatalk.app_id");
         String appSecret = props.getProperty("seatalk.app_secret");
 
-        System.out.println("Initializing WebSocket Client for App ID: " + appId);
+        log.info("Initializing WebSocket Client for App ID: {}", appId);
 
         SeaTalkBotWebSocketClient wsClient = new SeaTalkBotWebSocketClient(
                 appId,
@@ -56,7 +60,7 @@ public class SeaTalkBotResponse {
         Runtime.getRuntime().addShutdownHook(new Thread(executor::shutdown));
 
         try {
-            System.out.println("Connecting to WebSocket...");
+            log.info("Connecting to WebSocket...");
             wsClient.connect();
             Thread.currentThread().join();
         } catch (InterruptedException e) {
@@ -119,7 +123,7 @@ public class SeaTalkBotResponse {
         }
 
         if (seatalkId != null && !content.isEmpty()) {
-            System.out.printf("[New Message] Event: %s | From: %s (%s) | Content: %s%n",
+            log.info("[New Message] Event: {} | From: {} ({}) | Content: {}",
                     eventType, email, seatalkId, content);
 
             final String finalSeatalkId = seatalkId;
@@ -214,19 +218,19 @@ public class SeaTalkBotResponse {
             seatalk.sendImgToGroup(AMON_GROUP_ID, result);
 
         } catch (TimeoutException e) {
-            System.err.println("[ERROR] Execution timed out (exceeded 10 minutes threshold). Skipping current cycle.");
+            log.error("[ERROR] Execution timed out (exceeded 10 minutes threshold). Skipping current cycle.");
 
         } catch (ExecutionException e) {
             Throwable rootCause = e.getCause() != null ? e.getCause() : e;
-            System.err.println("[ERROR] Task execution failed: " + rootCause.getMessage());
+            log.error("[ERROR] Task execution failed: {}", rootCause.getMessage());
             rootCause.printStackTrace();
 
         } catch (InterruptedException e) {
-            System.err.println("[WARN] Worker thread execution was interrupted during synchronization wait.");
+            log.warn("[WARN] Worker thread execution was interrupted during synchronization wait.");
             Thread.currentThread().interrupt();
 
         } catch (Exception e) {
-            System.err.println("[CRITICAL ERROR] Unhandled exception occurred in current cycle: " + e.getMessage());
+            log.error("[CRITICAL ERROR] Unhandled exception occurred in current cycle: {}", e.getMessage());
             e.printStackTrace();
         }
     }
@@ -301,7 +305,7 @@ public class SeaTalkBotResponse {
                     "\n\n" + result);
 
         } catch (Exception e) {
-            System.err.println("[CRITICAL ERROR] Unhandled exception occurred in current cycle: " + e.getMessage());
+            log.error("[CRITICAL ERROR] Unhandled exception occurred in current cycle: {}", e.getMessage());
             e.printStackTrace();
         }
     }

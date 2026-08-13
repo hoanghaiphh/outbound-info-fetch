@@ -1,5 +1,7 @@
 package app;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import wms.CookiesConfig;
 
 import java.util.concurrent.Executors;
@@ -11,12 +13,14 @@ import static general.GlobalConstants.DEFAULT_USER;
 
 public class RefreshCookies {
 
+    private static final Logger log = LogManager.getLogger(RefreshCookies.class);
+
     private static final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
 
     public static void main(String[] args) {
         scheduler.scheduleAtFixedRate(() -> {
             try {
-                System.out.println("Checking cookies...");
+                log.info("Checking cookies...");
 
                 boolean isVNDBValid = CookiesConfig.isCookiesValid(DEFAULT_USER, "VNDB");
                 boolean isVNDLValid = CookiesConfig.isCookiesValid(DEFAULT_USER, "VNDL");
@@ -24,7 +28,7 @@ public class RefreshCookies {
                 if (!isVNDBValid || !isVNDLValid) {
                     CookiesConfig.loginAndSaveCookies(DEFAULT_USER, DEFAULT_PW);
                 } else {
-                    System.out.println("Cookies still valid.");
+                    log.info("Cookies still valid.");
                 }
             } catch (Exception e) {
                 e.printStackTrace();

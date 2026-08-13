@@ -1,5 +1,8 @@
 package app;
 
+import excel.ExcelHelper;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import wms.CookiesConfig;
 import seatalk.SeaTalkService;
 import wms.ApiCalling;
@@ -13,6 +16,10 @@ import static general.GlobalConstants.*;
 
 public class SeaTalkBotAuto {
 
+    private static final Logger log = LogManager.getLogger(SeaTalkBotAuto.class);
+
+    private static int[] previousOrders, currentOrders;
+
     private static final SeaTalkService seatalk = new SeaTalkService();
 
     private static final ExecutorService executor = Executors.newFixedThreadPool(2, r -> {
@@ -24,7 +31,7 @@ public class SeaTalkBotAuto {
 
     public static void main(String[] args) {
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            System.out.println("Application shutting down, releasing executor resources...");
+            log.info("Application shutting down, releasing executor resources...");
             executor.shutdownNow();
         }));
 
@@ -34,7 +41,7 @@ public class SeaTalkBotAuto {
                 TimeUnit.MINUTES.sleep(5);
             }
         } catch (InterruptedException e) {
-            System.out.println("Main loop interrupted. Stopping bot...");
+            log.info("Main loop interrupted. Stopping bot...");
             Thread.currentThread().interrupt();
 
         } finally {
@@ -80,20 +87,36 @@ public class SeaTalkBotAuto {
             seatalk.sendMsgToGroup(BACKUP_GROUP_ID, "From: **" + begTime + "**\nTo: **" + endTime + "**");
             seatalk.sendImgToGroup(BACKUP_GROUP_ID, result);
 
+            currentOrders = ExcelHelper.getOrders(OUTPUT_DIR);
+            if (previousOrders != null) {
+                int pickVNDB = currentOrders[0] - previousOrders[0];
+                int pickVNDL = currentOrders[1] - previousOrders[1];
+                int packVNDB = currentOrders[2] - previousOrders[2];
+                int packVNDL = currentOrders[3] - previousOrders[3];
+                seatalk.sendMsgToGroup(BACKUP_GROUP_ID, "Approximate speed:" +
+                        "\nPicking:" +
+                        "\n- VNDB: **" + pickVNDB + "** orders / 5 mins" +
+                        "\n- VNDL: **" + pickVNDL + "** orders / 5 mins" +
+                        "\nPacking:" +
+                        "\n- VNDB: **" + packVNDB + "** orders / 5 mins" +
+                        "\n- VNDL: **" + packVNDL + "** orders / 5 mins");
+            }
+            previousOrders = currentOrders;
+
         } catch (TimeoutException e) {
-            System.err.println("[ERROR] Execution timed out (exceeded 10 minutes threshold). Skipping current cycle.");
+            log.error("[ERROR] Execution timed out (exceeded 10 minutes threshold). Skipping current cycle.");
 
         } catch (ExecutionException e) {
             Throwable rootCause = e.getCause() != null ? e.getCause() : e;
-            System.err.println("[ERROR] Task execution failed: " + rootCause.getMessage());
+            log.error("[ERROR] Task execution failed: {}", rootCause.getMessage());
             rootCause.printStackTrace();
 
         } catch (InterruptedException e) {
-            System.err.println("[WARN] Worker thread execution was interrupted during synchronization wait.");
+            log.warn("[WARN] Worker thread execution was interrupted during synchronization wait.");
             Thread.currentThread().interrupt();
 
         } catch (Exception e) {
-            System.err.println("[CRITICAL ERROR] Unhandled exception occurred in current cycle: " + e.getMessage());
+            log.error("[CRITICAL ERROR] Unhandled exception occurred in current cycle: {}", e.getMessage());
             e.printStackTrace();
         }
     }

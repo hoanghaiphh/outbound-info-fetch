@@ -14,8 +14,12 @@ import java.util.concurrent.locks.ReentrantLock;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 public class SeaTalkService {
+
+    private final Logger log = LogManager.getLogger(getClass());
 
     private static final String AUTH_URL = "https://openapi.seatalk.io/auth/app_access_token";
     private static final String SEATALK_GROUP_CHAT_URL = "https://openapi.seatalk.io/messaging/v2/group_chat";
@@ -142,7 +146,7 @@ public class SeaTalkService {
             executeSendMessageWithRetry(groupId, messagePayload);
             return true;
         } catch (Exception e) {
-            System.err.println("[SeaTalkService System Error] " + e.getMessage());
+            log.error("[SeaTalkService System Error] {}", e.getMessage());
             return false;
         }
     }
@@ -163,7 +167,7 @@ public class SeaTalkService {
             executeSendMessageWithRetry(groupId, messagePayload);
             return true;
         } catch (Exception e) {
-            System.err.println("[SeaTalkService System Error] " + e.getMessage());
+            log.error("[SeaTalkService System Error] {}", e.getMessage());
             return false;
         }
     }
@@ -191,7 +195,7 @@ public class SeaTalkService {
             int statusCode = response.statusCode();
 
             if (statusCode == 401 && attempt == 1) {
-                System.err.println("[WARN] Token unauthorized (HTTP 401). Invalidating token and retrying...");
+                log.warn("[WARN] Token unauthorized (HTTP 401). Invalidating token and retrying...");
                 invalidateToken();
                 continue;
             }
@@ -208,7 +212,7 @@ public class SeaTalkService {
                     }
 
                     if (attempt == 1) {
-                        System.err.println("[WARN] SeaTalk API error code (" + responseCode + "). Invalidating token and retrying...");
+                        log.warn("[WARN] SeaTalk API error code ({}). Invalidating token and retrying...", responseCode);
                         invalidateToken();
                         continue;
                     }

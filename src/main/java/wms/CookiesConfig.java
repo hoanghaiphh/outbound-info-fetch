@@ -1,5 +1,7 @@
 package wms;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.openqa.selenium.By;
 import org.openqa.selenium.Cookie;
 import org.openqa.selenium.WebDriver;
@@ -20,6 +22,8 @@ import static general.GlobalConstants.*;
 
 public class CookiesConfig {
 
+    private static final Logger log = LogManager.getLogger(CookiesConfig.class);
+
     private static final String URL = "https://wms.business.accounts.shopee.com/authenticate/login?lang=en&client_id=19&next=https%3A%2F%2Fwms.ssc.shopee.vn%2Fv2%2Ftob%2Fcallback&google_login_redirect=https%3A%2F%2Fwms.ssc.shopee.vn%2Fv2%2Fgoogle%2Flogin";
 
     private static final String USER_TEXTBOX = "input#warehouse-management-system-authKey";
@@ -37,7 +41,7 @@ public class CookiesConfig {
             File cookiesFile = new File(directory, fileName);
 
             if (!cookiesFile.exists()) {
-                System.out.println("Cookies not found!");
+                log.info("Cookies not found!");
                 return false;
 
             } else {
@@ -46,7 +50,7 @@ public class CookiesConfig {
                 long createdTime = ((Number) data.get("createdTime")).longValue();
 
                 if ((System.currentTimeMillis() - createdTime) > (72 * 60 * 60 * 1000L)) {
-                    System.out.println("Cookies expired!");
+                    log.info("Cookies expired!");
                     return false;
 
                 } else {
@@ -86,7 +90,7 @@ public class CookiesConfig {
 
     //todo
     public static void loginAndSaveCookies(String userName, String password) {
-        System.out.println("Generating new cookies...");
+        log.info("Generating new cookies...");
 
         WebDriver driver = initBrowserThenNavigateTo(URL);
 

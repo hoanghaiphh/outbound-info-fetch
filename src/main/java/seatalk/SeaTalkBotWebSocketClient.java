@@ -15,9 +15,13 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import seatalk.SeaTalkWsModels.*;
 
 public class SeaTalkBotWebSocketClient implements WebSocket.Listener {
+
+    private final Logger log = LogManager.getLogger(getClass());
 
     private static final String DEFAULT_WS_URL = "wss://ws-openapi.haiserve.com/ws/bot";
 
@@ -66,7 +70,7 @@ public class SeaTalkBotWebSocketClient implements WebSocket.Listener {
         isConnecting.set(true);
         initScheduler();
 
-        System.out.println("[SeaTalk WS] Connecting to " + wsUrl + "...");
+        log.info("[SeaTalk WS] Connecting to {}...", wsUrl);
 
         try {
             HttpClient client = HttpClient.newBuilder()
@@ -80,13 +84,13 @@ public class SeaTalkBotWebSocketClient implements WebSocket.Listener {
                     .whenComplete((ws, error) -> {
                         isConnecting.set(false);
                         if (error != null) {
-                            System.err.println("[SeaTalk WS] Connection build failed: " + error.getMessage());
+                            log.error("[SeaTalk WS] Connection build failed: {}", error.getMessage());
                             scheduleReconnect();
                         }
                     });
         } catch (Exception e) {
             isConnecting.set(false);
-            System.err.println("[SeaTalk WS] Failed to initiate connection: " + e.getMessage());
+            log.error("[SeaTalk WS] Failed to initiate connection: {}", e.getMessage());
             scheduleReconnect();
         }
     }
@@ -97,9 +101,9 @@ public class SeaTalkBotWebSocketClient implements WebSocket.Listener {
         stopHeartbeat();
         registeredToken = null;
 
-        System.out.println("[SeaTalk WS] Will attempt reconnect in 5 seconds...");
+        log.info("[SeaTalk WS] Will attempt reconnect in 5 seconds...");
         scheduler.schedule(() -> {
-            System.out.println("[SeaTalk WS] Attempting reconnecting...");
+            log.info("[SeaTalk WS] Attempting reconnecting...");
             connect();
         }, 5, TimeUnit.SECONDS);
     }
@@ -107,7 +111,7 @@ public class SeaTalkBotWebSocketClient implements WebSocket.Listener {
     @Override
     public void onOpen(WebSocket webSocket) {
         this.webSocket = webSocket;
-        System.out.println("[SeaTalk WS] Connected. Sending register...");
+        log.info("[SeaTalk WS] Connected. Sending register...");
         webSocket.request(1);
 
         Envelope regEnvelope = new Envelope("register", Header.forRegister(appId, appSecret));
@@ -136,15 +140,15 @@ public class SeaTalkBotWebSocketClient implements WebSocket.Listener {
                 case "register" -> handleRegisterResponse(env);
                 case "event" -> handleEvent(env);
                 case "kick" -> {
-                    System.err.println("[SeaTalk WS] Session kicked by server: " + env.message);
+                    log.error("[SeaTalk WS] Session kicked by server: {}", env.message);
                     close();
                 }
                 case "pong" -> {
                 }
-                default -> System.out.println("[SeaTalk WS] Received unknown CMD: " + env.cmd);
+                default -> log.info("[SeaTalk WS] Received unknown CMD: {}", env.cmd);
             }
         } catch (Exception e) {
-            System.err.println("[SeaTalk WS] Error parsing frame: " + e.getMessage());
+            log.error("[SeaTalk WS] Error parsing frame: {}", e.getMessage());
         }
     }
 
@@ -153,7 +157,7 @@ public class SeaTalkBotWebSocketClient implements WebSocket.Listener {
 
         if (isCodeOk && env.header != null && env.header.token != null && !env.header.token.isBlank()) {
             this.registeredToken = env.header.token;
-            System.out.println("[SeaTalk WS] Register successful! Token acquired: " + registeredToken);
+            log.info("[SeaTalk WS] Register successful! Token acquired: {}", registeredToken);
 
             double intervalSeconds = 15.0;
             if (env.data != null) {
@@ -163,13 +167,13 @@ public class SeaTalkBotWebSocketClient implements WebSocket.Listener {
                         intervalSeconds = settings.heartbeatInterval;
                     }
                 } catch (Exception e) {
-                    System.out.println("[SeaTalk WS] Using default heartbeat interval: 15s");
+                    log.info("[SeaTalk WS] Using default heartbeat interval: 15s");
                 }
             }
 
             startHeartbeat((long) intervalSeconds);
         } else {
-            System.err.println("[SeaTalk WS] Register failed: " + env.message + " (Code: " + env.code + ")");
+            log.error("[SeaTalk WS] Register failed: {} (Code: {})", env.message, env.code);
             scheduleReconnect();
         }
     }
@@ -197,7 +201,7 @@ public class SeaTalkBotWebSocketClient implements WebSocket.Listener {
                     sendEnvelope(new Envelope("ping", Header.forPing(registeredToken)));
                 }
             } catch (Exception e) {
-                System.err.println("[SeaTalk WS] Ping failed: " + e.getMessage());
+                log.error("[SeaTalk WS] Ping failed: {}", e.getMessage());
             }
         }, intervalSeconds, intervalSeconds, TimeUnit.SECONDS);
     }
@@ -219,13 +223,13 @@ public class SeaTalkBotWebSocketClient implements WebSocket.Listener {
                 webSocket.sendText(jsonPayload, true);
             }
         } catch (Exception e) {
-            System.err.println("[SeaTalk WS] Send failed: " + e.getMessage());
+            log.error("[SeaTalk WS] Send failed: {}", e.getMessage());
         }
     }
 
     @Override
     public CompletionStage<?> onClose(WebSocket webSocket, int statusCode, String reason) {
-        System.out.println("[SeaTalk WS] Closed: " + statusCode + " / " + reason);
+        log.info("[SeaTalk WS] Closed: {} / {}", statusCode, reason);
         messageBuffer.setLength(0);
 
         if (!isClosedManual.get()) {
@@ -236,7 +240,7 @@ public class SeaTalkBotWebSocketClient implements WebSocket.Listener {
 
     @Override
     public void onError(WebSocket webSocket, Throwable error) {
-        System.err.println("[SeaTalk WS] Error occurred: " + error.getMessage());
+        log.error("[SeaTalk WS] Error occurred: {}", error.getMessage());
         if (!isClosedManual.get()) {
             scheduleReconnect();
         }

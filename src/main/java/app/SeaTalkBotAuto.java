@@ -84,24 +84,28 @@ public class SeaTalkBotAuto {
 
             String result = ReportImgGenerator.createReportImage(OUTPUT_DIR);
 
-            seatalk.sendMsgToGroup(BACKUP_GROUP_ID, "From: **" + begTime + "**\nTo: **" + endTime + "**");
-            seatalk.sendImgToGroup(BACKUP_GROUP_ID, result);
-
+            int pickVNDB = 0;
+            int pickVNDL = 0;
+            int packVNDB = 0;
+            int packVNDL = 0;
             currentOrders = ExcelHelper.getOrders(OUTPUT_DIR);
             if (previousOrders != null) {
-                int pickVNDB = currentOrders[0] - previousOrders[0];
-                int pickVNDL = currentOrders[1] - previousOrders[1];
-                int packVNDB = currentOrders[2] - previousOrders[2];
-                int packVNDL = currentOrders[3] - previousOrders[3];
-                seatalk.sendMsgToGroup(BACKUP_GROUP_ID, "Approximate speed:" +
-                        "\nPicking:" +
-                        "\n- VNDB: **" + pickVNDB + "** orders / 5 mins" +
-                        "\n- VNDL: **" + pickVNDL + "** orders / 5 mins" +
-                        "\nPacking:" +
-                        "\n- VNDB: **" + packVNDB + "** orders / 5 mins" +
-                        "\n- VNDL: **" + packVNDL + "** orders / 5 mins");
+                pickVNDB = Math.max((currentOrders[0] - previousOrders[0]), 0);
+                pickVNDL = Math.max((currentOrders[1] - previousOrders[1]), 0);
+                packVNDB = Math.max((currentOrders[2] - previousOrders[2]), 0);
+                packVNDL = Math.max((currentOrders[3] - previousOrders[3]), 0);
             }
             previousOrders = currentOrders;
+
+            seatalk.sendMsgToGroup(BACKUP_GROUP_ID, "From: **" + begTime + "**\n -> To: **" + endTime + "**" +
+                    "\n\nApproximate speed:" +
+                    "\nPicking:" +
+                    "\n- VNDB: **" + pickVNDB + "** orders / 5 mins" +
+                    "\n- VNDL: **" + pickVNDL + "** orders / 5 mins" +
+                    "\nPacking:" +
+                    "\n- VNDB: **" + packVNDB + "** orders / 5 mins" +
+                    "\n- VNDL: **" + packVNDL + "** orders / 5 mins");
+            seatalk.sendImgToGroup(BACKUP_GROUP_ID, result);
 
         } catch (TimeoutException e) {
             log.error("[ERROR] Execution timed out (exceeded 10 minutes threshold). Skipping current cycle.");

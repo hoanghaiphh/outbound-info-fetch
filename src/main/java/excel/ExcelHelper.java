@@ -93,21 +93,34 @@ public class ExcelHelper {
     }
 
     public static int[] getOrders(String parentDir) {
+
         Map<String, Integer> countsVNDB = getStatusCounts("VNDB", parentDir);
         Map<String, Integer> countsVNDL = getStatusCounts("VNDL", parentDir);
 
+        int totalVNDB = 0;
+        int totalVNDL = 0;
         int pickedVNDB = 0;
         int pickedVNDL = 0;
         int packedVNDB = 0;
         int packedVNDL = 0;
 
-        for (String status : Arrays
-                .asList("Picked", "Pick Fail", "Checking", "Checked", "Packing", "Packed", "Shipping", "Outbound")) {
+        for (String status : STATUS_LIST) {
             int valVNDB = countsVNDB.getOrDefault(status, 0);
             int valVNDL = countsVNDL.getOrDefault(status, 0);
 
-            pickedVNDB += valVNDB;
-            pickedVNDL += valVNDL;
+            if (!status.equals("Cancel")) {
+                totalVNDB += valVNDB;
+                totalVNDL += valVNDL;
+            }
+
+            if (status.equals("Picked") || status.equals("Pick Fail")
+                    || status.equals("Checking") || status.equals("Checked")
+                    || status.equals("Packing") || status.equals("Packed")
+                    || status.equals("Shipping") || status.equals("Outbound")) {
+
+                pickedVNDB += valVNDB;
+                pickedVNDL += valVNDL;
+            }
 
             if (status.equals("Packed") || status.equals("Shipping") || status.equals("Outbound")) {
                 packedVNDB += valVNDB;
@@ -115,7 +128,7 @@ public class ExcelHelper {
             }
         }
 
-        return new int[]{pickedVNDB, pickedVNDL, packedVNDB, packedVNDL};
+        return new int[]{totalVNDB, totalVNDL, pickedVNDB, pickedVNDL, packedVNDB, packedVNDL};
     }
 
 }

@@ -82,8 +82,6 @@ public class SeaTalkBotAuto {
 
             CompletableFuture.allOf(taskB, taskL).get(10, TimeUnit.MINUTES);
 
-            String result = ReportImgGenerator.createReportImage(OUTPUT_DIR);
-
             int ttVNDB = 0;
             int ttVNDL = 0;
             int pickVNDB = 0;
@@ -101,11 +99,10 @@ public class SeaTalkBotAuto {
             }
             previousOrders = currentOrders;
 
-            seatalk.sendMsgToGroup(BACKUP_GROUP_ID, "From: **" + begTime + "**\n -> To: **" + endTime + "**" +
-                    "\n\nApproximate speed per 5 mins:" +
-                    "\n**Create:**\n- VNDB: **" + ttVNDB + "**  |  VNDL: **" + ttVNDL + "**" +
-                    "\n**Pick:**\n- VNDB: **" + pickVNDB + "**  |  VNDL: **" + pickVNDL + "**" +
-                    "\n**Pack:**\n- VNDB: **" + packVNDB + "**  |  VNDL: **" + packVNDL + "**");
+            String result = ReportImgGenerator.createReportImage(OUTPUT_DIR,
+                    ttVNDB, ttVNDL, pickVNDB, pickVNDL, packVNDB, packVNDL);
+
+            seatalk.sendMsgToGroup(BACKUP_GROUP_ID, "From: **" + begTime + "**\n→ To: **" + endTime + "**");
             seatalk.sendImgToGroup(BACKUP_GROUP_ID, result);
 
         } catch (TimeoutException e) {

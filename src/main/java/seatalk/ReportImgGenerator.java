@@ -28,12 +28,12 @@ public class ReportImgGenerator {
     private static final Color COLOR_ACTIVE_STATUS = new Color(0, 191, 255);
     private static final Color COLOR_NORMAL_STATUS = new Color(200, 200, 200);
 
-    public static String createReportImage(String parentDir) {
+    public static String createReportImage(String parentDir, int... speedList) {
         Map<String, Integer> countsVNDB = getStatusCounts("VNDB", parentDir);
         Map<String, Integer> countsVNDL = getStatusCounts("VNDL", parentDir);
 
         // 1. Tính toán kích thước ảnh trước
-        int imageHeight = PADDING * 2 + 50 + (STATUS_LIST.size() * ROW_HEIGHT) + 50;
+        int imageHeight = PADDING * 2 + 50 + (STATUS_LIST.size() * ROW_HEIGHT) + 30;
 
         BufferedImage bufferedImage = new BufferedImage(IMAGE_WIDTH, imageHeight, BufferedImage.TYPE_INT_RGB);
         Graphics2D g2d = bufferedImage.createGraphics();
@@ -50,7 +50,7 @@ public class ReportImgGenerator {
             currentY = drawHorizontalLine(g2d, currentY + 12);
 
             // 4. Vẽ Dữ liệu & Tính tổng tích hợp
-            int[] totals = drawDataRows(g2d, metrics, currentY, countsVNDB, countsVNDL);
+            int[] totals = drawDataRows(g2d, metrics, currentY, countsVNDB, countsVNDL, speedList);
             currentY += (STATUS_LIST.size() * ROW_HEIGHT); // Cập nhật Y sau khi vẽ xong toàn bộ các hàng data
 
             // 5. Vẽ Phần tổng số
@@ -99,7 +99,8 @@ public class ReportImgGenerator {
     }
 
     private static int[] drawDataRows(Graphics2D g2d, FontMetrics metrics, int startY,
-                                      Map<String, Integer> countsVNDB, Map<String, Integer> countsVNDL) {
+                                      Map<String, Integer> countsVNDB, Map<String, Integer> countsVNDL,
+                                      int... speedList) {
         int totalVNDB = 0;
         int totalVNDL = 0;
         int localY = startY;
@@ -115,19 +116,57 @@ public class ReportImgGenerator {
                 totalVNDL += valVNDL;
             }
 
-            // Vẽ chữ cột Status
+            // 1. Vẽ cột Status
             g2d.setColor(HIGHLIGHT_STATUSES.contains(status) ? COLOR_ACTIVE_STATUS : COLOR_NORMAL_STATUS);
             g2d.drawString(status, COL_STATUS_X, localY);
 
-            // Vẽ chữ cột VNDB (Right-aligned)
-            g2d.setColor(COLOR_VNDB);
-            String strVndb = String.format("%,d", valVNDB);
-            g2d.drawString(strVndb, COL_VNDB_RIGHT_X - metrics.stringWidth(strVndb), localY);
+            String speedB = "";
+            String speedL = "";
 
-            // Vẽ chữ cột VNDL (Right-aligned)
-            g2d.setColor(COLOR_VNDL);
+            if (speedList != null && speedList.length >= 6) {
+                if ("Created".equals(status)) {
+                    speedB = (speedList[0] == 0) ? "" : "(+" + speedList[0] + ") ";
+                    speedL = (speedList[1] == 0) ? "" : "(+" + speedList[1] + ") ";
+                } else if ("Picked".equals(status)) {
+                    speedB = (speedList[2] == 0) ? "" : "(+" + speedList[2] + ") ";
+                    speedL = (speedList[3] == 0) ? "" : "(+" + speedList[3] + ") ";
+                } else if ("Packed".equals(status)) {
+                    speedB = (speedList[4] == 0) ? "" : "(+" + speedList[4] + ") ";
+                    speedL = (speedList[5] == 0) ? "" : "(+" + speedList[5] + ") ";
+                }
+            }
+
+            // 2. Vẽ cột VNDB
+            String strVndb = String.format("%,d", valVNDB);
+            int strVndbWidth = metrics.stringWidth(strVndb);
+            int numX_VNDB = COL_VNDB_RIGHT_X - strVndbWidth;
+
+            // Vẽ con số VNDB (Màu chính)
+            g2d.setColor(COLOR_VNDB);
+            g2d.drawString(strVndb, numX_VNDB, localY);
+
+            // Vẽ speedB màu vàng (đặt phía trước con số)
+            if (!speedB.isEmpty()) {
+                g2d.setColor(Color.YELLOW);
+                int speedBWidth = metrics.stringWidth(speedB);
+                g2d.drawString(speedB, numX_VNDB - speedBWidth, localY);
+            }
+
+            // 3. Vẽ cột VNDL
             String strVndl = String.format("%,d", valVNDL);
-            g2d.drawString(strVndl, COL_VNDL_RIGHT_X - metrics.stringWidth(strVndl), localY);
+            int strVndlWidth = metrics.stringWidth(strVndl);
+            int numX_VNDL = COL_VNDL_RIGHT_X - strVndlWidth;
+
+            // Vẽ con số VNDL (Màu chính)
+            g2d.setColor(COLOR_VNDL);
+            g2d.drawString(strVndl, numX_VNDL, localY);
+
+            // Vẽ speedL màu vàng (đặt phía trước con số)
+            if (!speedL.isEmpty()) {
+                g2d.setColor(Color.YELLOW);
+                int speedLWidth = metrics.stringWidth(speedL);
+                g2d.drawString(speedL, numX_VNDL - speedLWidth, localY);
+            }
         }
 
         return new int[]{totalVNDB, totalVNDL};

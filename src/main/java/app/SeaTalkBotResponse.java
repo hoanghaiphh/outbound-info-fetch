@@ -1,5 +1,6 @@
 package app;
 
+import gemini.GeminiService;
 import general.CommonHelper;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -81,7 +82,7 @@ public class SeaTalkBotResponse {
         String content = "";
 
         switch (eventType) {
-            case "message_from_bot_subscriber": {
+            /*case "message_from_bot_subscriber": {
                 Object seatalkIdObj = eventObj.get("seatalk_id");
                 seatalkId = seatalkIdObj != null ? String.valueOf(seatalkIdObj) : null;
                 email = (String) eventObj.get("email");
@@ -94,7 +95,7 @@ public class SeaTalkBotResponse {
                     }
                 }
                 break;
-            }
+            }*/
 
             case "new_mentioned_message_received_from_group_chat": {
                 Map<String, Object> messageObj = (Map<String, Object>) eventObj.get("message");
@@ -142,6 +143,8 @@ public class SeaTalkBotResponse {
             executeRePrintCommand(content);
         } else if (content.toLowerCase().contains("backlog")) {
             executeBacklogCommand(content);
+        } else if (content.toLowerCase().contains("ask-ai")) {
+            executeAskAICommand(content);
         } else if (content.equalsIgnoreCase("test")) {
             seatalk.sendMsgToGroup(AMON_GROUP_ID, "Don't ask us why we're taking such risks. Life often requires some excitement, joy, and anticipation.");
         } else {
@@ -308,5 +311,27 @@ public class SeaTalkBotResponse {
             log.error("[CRITICAL ERROR] Unhandled exception occurred in current cycle: {}", e.getMessage());
             e.printStackTrace();
         }
+    }
+
+    private static void executeAskAICommand(String cmd) {
+        // ask-ai <prompt>
+
+        String prompt = cmd.substring("ask-ai".length()).trim();
+
+        if (prompt.isEmpty()) {
+            seatalk.sendMsgToGroup(AMON_GROUP_ID, "Prompt is empty!");
+            return;
+        }
+
+        seatalk.sendMsgToGroup(AMON_GROUP_ID, "Im thinking ...\nPlease wait a second ...");
+
+        GeminiService.getInstance().askGemini(prompt)
+                .thenAccept(aiResponse -> {
+                    seatalk.sendMsgToGroup(AMON_GROUP_ID, aiResponse);
+                })
+                .exceptionally(ex -> {
+                    seatalk.sendMsgToGroup(AMON_GROUP_ID, "[ERROR]: " + ex.getMessage());
+                    return null;
+                });
     }
 }

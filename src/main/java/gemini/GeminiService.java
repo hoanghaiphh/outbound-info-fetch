@@ -18,7 +18,7 @@ public class GeminiService {
 
     private static final Logger log = LogManager.getLogger(GeminiService.class);
 
-    private static final String MODEL_NAME = "gemini-3.6-flash";
+    private static final String MODEL_NAME = "gemini-3.5-flash-lite";
     private static final String KEY_FILE_PATH = "creds/gemini-api-key.txt";
 
     private static final int MAX_RETRIES = 3;

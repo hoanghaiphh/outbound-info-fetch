@@ -7,6 +7,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.Executors;
@@ -130,7 +131,7 @@ public class SeaTalkService {
         }
     }
 
-    public boolean sendMsgToGroup(String groupId, String msg) {
+    public boolean sendMsgToGroup(String groupId, String msg, String... threadId) {
         if (groupId == null || groupId.isBlank()) {
             throw new IllegalArgumentException("Group ID cannot be null or empty.");
         }
@@ -139,10 +140,13 @@ public class SeaTalkService {
         }
 
         try {
-            var messagePayload = Map.of(
+            var messagePayload = new HashMap<>(Map.of(
                     "tag", "text",
                     "text", Map.of("format", 1, "content", msg)
-            );
+            ));
+
+            if (threadId != null) messagePayload.put("thread_id", threadId[0]);
+
             executeSendMessageWithRetry(groupId, messagePayload);
             return true;
         } catch (Exception e) {
@@ -151,7 +155,7 @@ public class SeaTalkService {
         }
     }
 
-    public boolean sendImgToGroup(String groupId, String imageBase64) {
+    public boolean sendImgToGroup(String groupId, String imageBase64, String... threadId) {
         if (groupId == null || groupId.isBlank()) {
             throw new IllegalArgumentException("Group ID cannot be null or empty.");
         }
@@ -160,10 +164,13 @@ public class SeaTalkService {
         }
 
         try {
-            var messagePayload = Map.of(
+            var messagePayload = new HashMap<>(Map.of(
                     "tag", "image",
                     "image", Map.of("content", imageBase64)
-            );
+            ));
+
+            if (threadId != null) messagePayload.put("thread_id", threadId[0]);
+
             executeSendMessageWithRetry(groupId, messagePayload);
             return true;
         } catch (Exception e) {

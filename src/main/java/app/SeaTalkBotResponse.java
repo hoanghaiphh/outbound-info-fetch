@@ -80,6 +80,8 @@ public class SeaTalkBotResponse {
         String seatalkId = null;
         String email = null;
         String content = "";
+        String groupId = null;
+        String threadId = null;
 
         switch (eventType) {
             /*case "message_from_bot_subscriber": {
@@ -98,9 +100,26 @@ public class SeaTalkBotResponse {
             }*/
 
             case "new_mentioned_message_received_from_group_chat": {
+
+                // get Group ID
+                Object groupIdObj = eventObj.get("group_id");
+                groupId = groupIdObj != null ? String.valueOf(groupIdObj) : null;
+
                 Map<String, Object> messageObj = (Map<String, Object>) eventObj.get("message");
                 if (messageObj == null) return;
 
+                // get Thread ID
+                Object messageIdObj = messageObj.get("message_id");
+                String messageId = messageIdObj != null ? String.valueOf(messageIdObj) : null;
+
+                Object threadIdObj = messageObj.get("thread_id");
+                threadId = threadIdObj != null ? String.valueOf(threadIdObj) : null;
+
+                if (threadId == null || threadId.trim().isEmpty()) {
+                    threadId = messageId;
+                }
+
+                // get other info
                 Map<String, Object> senderObj = (Map<String, Object>) messageObj.get("sender");
                 if (senderObj != null) {
                     Object seatalkIdObj = senderObj.get("seatalk_id");
@@ -112,7 +131,6 @@ public class SeaTalkBotResponse {
                     Map<String, Object> textObj = (Map<String, Object>) messageObj.get("text");
                     if (textObj != null && textObj.get("plain_text") != null) {
                         content = ((String) textObj.get("plain_text")).trim();
-
                         content = content.replaceAll("^@[^\\s]+\\s*", "").trim();
                     }
                 }
@@ -123,36 +141,45 @@ public class SeaTalkBotResponse {
                 return;
         }
 
+        if (groupId == null) groupId = BACKUP_GROUP_ID;
+
         if (seatalkId != null && !content.isEmpty()) {
-            log.info("[New Message] Event: {} | From: {} ({}) | Content: {}",
-                    eventType, email, seatalkId, content);
+            log.info("[New Message] Event: {} | Group: {} | Thread: {}\n\tFrom: {} ({})\n\tContent: {}",
+                    eventType, groupId, threadId, email, seatalkId, content);
 
             final String finalSeatalkId = seatalkId;
             final String finalContent = content;
+            final String finalGroupId = groupId;
+            final String finalThreadId = threadId;
 
-            executor.submit(() -> executeCommand(finalSeatalkId, finalContent));
+            executor.submit(() -> executeCommand(finalSeatalkId, finalContent, finalGroupId, finalThreadId));
         }
     }
 
-    private static void executeCommand(String seatalkId, String content) {
+    private static void executeCommand(String seatalkId, String content, String groupId, String threadId) {
         if (seatalkId == null) return;
 
         content = content.trim();
 
         if (content.toLowerCase().contains("reprint")) {
-            executeRePrintCommand(content);
+            executeRePrintCommand(content, groupId, threadId);
         } else if (content.toLowerCase().contains("backlog")) {
-            executeBacklogCommand(content);
+            executeBacklogCommand(content, groupId, threadId);
         } else if (content.toLowerCase().contains("ask-ai")) {
-            executeAskAICommand(content);
+            executeAskAICommand(content, groupId, threadId);
         } else if (content.equalsIgnoreCase("test")) {
-            seatalk.sendMsgToGroup(AMON_GROUP_ID, "Don't ask us why we're taking such risks. Life often requires some excitement, joy, and anticipation.");
+            seatalk.sendMsgToGroup(
+                    groupId,
+                    "Don't ask us why we're taking such risks. Life often requires some excitement, joy, and anticipation.",
+                    threadId);
         } else {
-            seatalk.sendMsgToGroup(AMON_GROUP_ID, "What the f*ck are you talking about?");
+            seatalk.sendMsgToGroup(groupId,
+                    "What the f*ck are you talking about?",
+                    threadId);
         }
     }
 
-    private static void executeBacklogCommand(String cmd) {
+    private static void executeBacklogCommand(String cmd, String groupId, String threadId) {
         // backlog --from='2026/07/19 18:00:00' --to='2026/07/20 18:00:00'
 
         try {
@@ -176,14 +203,14 @@ public class SeaTalkBotResponse {
             }
 
             if (begTime == null || endTime == null) {
-                seatalk.sendMsgToGroup(AMON_GROUP_ID, "Please input range of time!");
+                seatalk.sendMsgToGroup(groupId, "Please input range of time!", threadId);
                 return;
             }
 
             final String begTimeFinal = begTime;
             final String endTimeFinal = endTime;
 
-            seatalk.sendMsgToGroup(AMON_GROUP_ID, "Im thinking ...\nPlease wait a second ...");
+            seatalk.sendMsgToGroup(groupId, "Im thinking ...\nPlease wait a second ...", threadId);
 
             Map<String, String> cookiesB = CookiesConfig.loadCookies(DEFAULT_USER, "VNDB");
             Map<String, String> cookiesL = CookiesConfig.loadCookies(DEFAULT_USER, "VNDL");
@@ -214,11 +241,14 @@ public class SeaTalkBotResponse {
 
             String result = ReportImgGenerator.createReportImage(TMP_OUTPUT_DIR);
 
-            seatalk.sendMsgToGroup(AMON_GROUP_ID, "Backlog:" +
-                    "\nFrom: **" + begTime + "**" +
-                    "\nTo: **" + endTime + "**");
+            seatalk.sendMsgToGroup(
+                    groupId,
+                    "Backlog:" +
+                            "\nFrom: **" + begTime + "**" +
+                            "\nTo: **" + endTime + "**",
+                    threadId);
 
-            seatalk.sendImgToGroup(AMON_GROUP_ID, result);
+            seatalk.sendImgToGroup(groupId, result, threadId);
 
         } catch (TimeoutException e) {
             log.error("[ERROR] Execution timed out (exceeded 10 minutes threshold). Skipping current cycle.");
@@ -238,7 +268,7 @@ public class SeaTalkBotResponse {
         }
     }
 
-    private static void executeRePrintCommand(String cmd) {
+    private static void executeRePrintCommand(String cmd, String groupId, String threadId) {
         // reprint --from='2026/07/19 18:00:00' --to='2026/07/20 18:00:00' --warehouse='L' --lmtracking='SPXVN062524848687'
 
         try {
@@ -277,16 +307,16 @@ public class SeaTalkBotResponse {
             }
 
             if (lmTrackingNo == null) {
-                seatalk.sendMsgToGroup(AMON_GROUP_ID, "Please input LM Tracking Number!");
+                seatalk.sendMsgToGroup(groupId, "Please input LM Tracking Number!", threadId);
                 return;
             }
 
             if (warehouse == null) {
-                seatalk.sendMsgToGroup(AMON_GROUP_ID, "Please input Warehouse!");
+                seatalk.sendMsgToGroup(groupId, "Please input Warehouse!", threadId);
                 return;
             }
 
-            seatalk.sendMsgToGroup(AMON_GROUP_ID, "Im thinking ...\nPlease wait a second ...");
+            seatalk.sendMsgToGroup(groupId, "Im thinking ...\nPlease wait a second ...", threadId);
 
             Map<String, String> cookies;
             if (warehouse.equalsIgnoreCase("B")) {
@@ -295,17 +325,20 @@ public class SeaTalkBotResponse {
             } else if (warehouse.equalsIgnoreCase("L")) {
                 cookies = CookiesConfig.loadCookies(DEFAULT_USER, "VNDL");
             } else {
-                seatalk.sendMsgToGroup(AMON_GROUP_ID, "Warehouse invalid!");
+                seatalk.sendMsgToGroup(groupId, "Warehouse invalid!", threadId);
                 return;
             }
 
             String result = ApiCalling.getRePrintOrderAsString(cookies, begTime, endTime, lmTrackingNo);
 
-            seatalk.sendMsgToGroup(AMON_GROUP_ID, "Re-print Order in same task:" +
-                    "\nFrom: **" + begTime + "**" +
-                    "\nTo: **" + endTime + "**" +
-                    "\nLM Tracking: **" + lmTrackingNo.toUpperCase() + "**" +
-                    "\n\n" + result);
+            seatalk.sendMsgToGroup(
+                    groupId,
+                    "Re-print Order in same task:" +
+                            "\nFrom: **" + begTime + "**" +
+                            "\nTo: **" + endTime + "**" +
+                            "\nLM Tracking: **" + lmTrackingNo.toUpperCase() + "**" +
+                            "\n\n" + result,
+                    threadId);
 
         } catch (Exception e) {
             log.error("[CRITICAL ERROR] Unhandled exception occurred in current cycle: {}", e.getMessage());
@@ -313,24 +346,24 @@ public class SeaTalkBotResponse {
         }
     }
 
-    private static void executeAskAICommand(String cmd) {
+    private static void executeAskAICommand(String cmd, String groupId, String threadId) {
         // ask-ai <prompt>
 
         String prompt = cmd.substring("ask-ai".length()).trim();
 
         if (prompt.isEmpty()) {
-            seatalk.sendMsgToGroup(AMON_GROUP_ID, "Prompt is empty!");
+            seatalk.sendMsgToGroup(groupId, "Prompt is empty!", threadId);
             return;
         }
 
-        seatalk.sendMsgToGroup(AMON_GROUP_ID, "Im thinking ...\nPlease wait a second ...");
+        seatalk.sendMsgToGroup(groupId, "Im thinking ...\nPlease wait a second ...", threadId);
 
         GeminiService.getInstance().askGemini(prompt)
                 .thenAccept(aiResponse -> {
-                    seatalk.sendMsgToGroup(AMON_GROUP_ID, aiResponse);
+                    seatalk.sendMsgToGroup(groupId, aiResponse, threadId);
                 })
                 .exceptionally(ex -> {
-                    seatalk.sendMsgToGroup(AMON_GROUP_ID, "[ERROR]: " + ex.getMessage());
+                    seatalk.sendMsgToGroup(groupId, "[ERROR]: " + ex.getMessage(), threadId);
                     return null;
                 });
     }

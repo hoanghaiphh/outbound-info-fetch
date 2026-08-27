@@ -145,7 +145,7 @@ public class SeaTalkService {
                     "text", Map.of("format", 1, "content", msg)
             ));
 
-            if (threadId != null) messagePayload.put("thread_id", threadId[0]);
+            if (threadId != null && threadId.length > 0) messagePayload.put("thread_id", threadId[0]);
 
             executeSendMessageWithRetry(groupId, messagePayload);
             return true;
@@ -169,7 +169,7 @@ public class SeaTalkService {
                     "image", Map.of("content", imageBase64)
             ));
 
-            if (threadId != null) messagePayload.put("thread_id", threadId[0]);
+            if (threadId != null && threadId.length > 0) messagePayload.put("thread_id", threadId[0]);
 
             executeSendMessageWithRetry(groupId, messagePayload);
             return true;

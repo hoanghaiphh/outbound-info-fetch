@@ -141,7 +141,7 @@ public class SeaTalkBotResponse {
                 return;
         }
 
-        if (groupId == null) groupId = BACKUP_GROUP_ID;
+        if (groupId == null) groupId = AMON_GROUP_ID;
 
         if (seatalkId != null && !content.isEmpty()) {
             log.info("[New Message] Event: {} | Group: {} | Thread: {}\n\tFrom: {} ({})\n\tContent: {}",

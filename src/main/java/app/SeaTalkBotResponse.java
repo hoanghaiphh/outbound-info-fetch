@@ -356,6 +356,8 @@ public class SeaTalkBotResponse {
             return;
         }
 
+        prompt = prompt + " (câu trả lời không vượt quá 4096 ký tự)";
+
         seatalk.sendMsgToGroup(groupId, "Im thinking ...\nPlease wait a second ...", threadId);
 
         GeminiService.getInstance().askGemini(prompt)

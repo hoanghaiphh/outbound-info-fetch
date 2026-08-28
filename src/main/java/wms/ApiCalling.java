@@ -360,7 +360,7 @@ public class ApiCalling {
 
             if (!order.getPrintLogs().isEmpty()) {
                 for (RePrintOrderInfo.PrintLog log : order.getPrintLogs()) {
-                    result.append(String.format("   - %s | Operator: %s\n", log.getTimeFormatted(), log.getOperator()));
+                    result.append(String.format("   - %s | %s\n", log.getTimeFormatted(), log.getOperator()));
                 }
             } else {
                 result.append("   - No log available\n");

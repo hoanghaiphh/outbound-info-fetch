@@ -33,7 +33,7 @@ public class QueryRePrint {
                 }
             }
 
-            while (true) {
+            /*while (true) {
                 System.out.println("WAREHOUSE:");
                 warehouse = scanner.nextLine().trim();
 
@@ -72,7 +72,7 @@ public class QueryRePrint {
                 } catch (DateTimeParseException e) {
                     System.err.println("Wrong format. Please try again!");
                 }
-            }
+            }*/
 
             System.out.println("LM TRACKING NO:");
             lmTrackingNo = scanner.nextLine().trim();
@@ -88,7 +88,7 @@ public class QueryRePrint {
 
     private static void mainRun() {
         try {
-            if (!CookiesConfig.isCookiesValid(username, "VNDB")
+            /*if (!CookiesConfig.isCookiesValid(username, "VNDB")
                     || !CookiesConfig.isCookiesValid(username, "VNDL")) {
                 CookiesConfig.loginAndSaveCookies(username, password);
             }
@@ -97,9 +97,9 @@ public class QueryRePrint {
                 cookies = CookiesConfig.loadCookies(username, "VNDB");
             } else if (warehouse.equalsIgnoreCase("L")) {
                 cookies = CookiesConfig.loadCookies(username, "VNDL");
-            }
+            }*/
 
-            ApiCalling.printToConsoleRePrintOrder(cookies, begTime, endTime, lmTrackingNo);
+            ApiCalling.printToConsoleRePrintOrder(lmTrackingNo);
 
         } catch (Exception e) {
             throw new RuntimeException(e);

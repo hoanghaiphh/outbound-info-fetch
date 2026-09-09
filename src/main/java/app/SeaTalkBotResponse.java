@@ -269,41 +269,18 @@ public class SeaTalkBotResponse {
     }
 
     private static void executeRePrintCommand(String cmd, String groupId, String threadId) {
-        // reprint --from='2026/07/19 18:00:00' --to='2026/07/20 18:00:00' --warehouse='L' --lmtracking='SPXVN062524848687'
+        // reprint --lmtracking='SPXVN062524848687'
 
         try {
-
             Matcher matcher = ARG_PATTERN.matcher(cmd);
-
-            String begTime = null;
-            String endTime = null;
-            String warehouse = null;
             String lmTrackingNo = null;
 
             while (matcher.find()) {
                 String key = matcher.group("key");
                 String value = matcher.group("value");
-
-                switch (key.toLowerCase()) {
-                    case "from":
-                        begTime = value;
-                        break;
-                    case "to":
-                        endTime = value;
-                        break;
-                    case "warehouse":
-                        warehouse = value;
-                        break;
-                    case "lmtracking":
-                        lmTrackingNo = value;
-                        break;
+                if (key.equalsIgnoreCase("lmtracking")) {
+                    lmTrackingNo = value;
                 }
-            }
-
-            if (begTime == null || endTime == null) {
-                String[] timeRange = CommonHelper.getWorkingTimeRange(false); // todo: ???
-                begTime = timeRange[0];
-                endTime = timeRange[1];
             }
 
             if (lmTrackingNo == null) {
@@ -311,31 +288,13 @@ public class SeaTalkBotResponse {
                 return;
             }
 
-            if (warehouse == null) {
-                seatalk.sendMsgToGroup(groupId, "Please input Warehouse!", threadId);
-                return;
-            }
-
             seatalk.sendMsgToGroup(groupId, "Im thinking ...\nPlease wait a second ...", threadId);
 
-            Map<String, String> cookies;
-            if (warehouse.equalsIgnoreCase("B")) {
-                cookies = CookiesConfig.loadCookies(DEFAULT_USER, "VNDB");
-
-            } else if (warehouse.equalsIgnoreCase("L")) {
-                cookies = CookiesConfig.loadCookies(DEFAULT_USER, "VNDL");
-            } else {
-                seatalk.sendMsgToGroup(groupId, "Warehouse invalid!", threadId);
-                return;
-            }
-
-            String result = ApiCalling.getRePrintOrderAsString(cookies, begTime, endTime, lmTrackingNo);
+            String result = ApiCalling.getRePrintOrderAsString(lmTrackingNo);
 
             seatalk.sendMsgToGroup(
                     groupId,
                     "Re-print Order in same task:" +
-                            "\nFrom: **" + begTime + "**" +
-                            "\nTo: **" + endTime + "**" +
                             "\nLM Tracking: **" + lmTrackingNo.toUpperCase() + "**" +
                             "\n\n" + result,
                     threadId);

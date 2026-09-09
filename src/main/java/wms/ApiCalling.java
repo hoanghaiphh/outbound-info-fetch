@@ -207,16 +207,12 @@ public class ApiCalling {
         return null;
     }
 
-    private static List<String> getOrderListFromLMTrackingNo(
-            Map<String, String> cookies, String begTime, String endTime, String lmTrackingNo) {
-
-        long begTimeEpoch = LocalDateTime.parse(begTime, DATE_TIME_FORMATTER).toEpochSecond(ZoneOffset.ofHours(7));
-        long endTimeEpoch = LocalDateTime.parse(endTime, DATE_TIME_FORMATTER).toEpochSecond(ZoneOffset.ofHours(7));
+    private static List<String> getOrderListFromLMTrackingNo(Map<String, String> cookies, String lmTrackingNo) {
 
         Map<String, Object> queryParams1 = new HashMap<>();
-        queryParams1.put("beg_ctime", begTimeEpoch);
+//        queryParams1.put("beg_ctime", begTimeEpoch);
         queryParams1.put("count", 20);
-        queryParams1.put("end_ctime", endTimeEpoch);
+//        queryParams1.put("end_ctime", endTimeEpoch);
         queryParams1.put("is_get_total", 0);
         queryParams1.put("pageno", 1);
         queryParams1.put("second_search_key", lmTrackingNo);
@@ -252,8 +248,8 @@ public class ApiCalling {
         Map<String, Object> queryParams2 = new HashMap<>();
         queryParams2.put("is_get_total", 1);
         queryParams2.put("search_key", taskId);
-        queryParams2.put("start_time", begTimeEpoch);
-        queryParams2.put("end_time", endTimeEpoch);
+//        queryParams2.put("start_time", begTimeEpoch);
+//        queryParams2.put("end_time", endTimeEpoch);
         queryParams2.put("pageno", 1);
         queryParams2.put("count", 200);
 
@@ -281,13 +277,20 @@ public class ApiCalling {
         return response;
     }
 
-    private static List<RePrintOrderInfo> getRePrintOrders(
-            Map<String, String> cookies, String begTime, String endTime, String lmTrackingNo) {
+    private static List<RePrintOrderInfo> getRePrintOrders(String lmTrackingNo) {
 
-        List<String> orderList = getOrderListFromLMTrackingNo(cookies, begTime, endTime, lmTrackingNo);
-        List<RePrintOrderInfo> result = new ArrayList<>();
+        Map<String, String> cookies = null;
+        List<String> orderList = Collections.emptyList();
+
+        for (String warehouse : List.of("VNDB", "VNDL")) {
+            cookies = CookiesConfig.loadCookies(DEFAULT_USER, warehouse);
+            orderList = getOrderListFromLMTrackingNo(cookies, lmTrackingNo);
+            if (!orderList.isEmpty()) break;
+        }
 
         if (orderList.isEmpty()) return null;
+
+        List<RePrintOrderInfo> result = new ArrayList<>();
 
         for (String task : orderList) {
             Response response = getCheckingTaskDetail(cookies, task);
@@ -317,10 +320,9 @@ public class ApiCalling {
         return result;
     }
 
-    public static void printToConsoleRePrintOrder(
-            Map<String, String> cookies, String begTime, String endTime, String lmTrackingNo) {
+    public static void printToConsoleRePrintOrder(String lmTrackingNo) {
 
-        List<RePrintOrderInfo> orders = getRePrintOrders(cookies, begTime, endTime, lmTrackingNo);
+        List<RePrintOrderInfo> orders = getRePrintOrders(lmTrackingNo);
 
         for (RePrintOrderInfo order : orders) {
             System.out.println(ANSI_YELLOW + "==================================================");
@@ -340,13 +342,12 @@ public class ApiCalling {
         }
     }
 
-    public static String getRePrintOrderAsString(
-            Map<String, String> cookies, String begTime, String endTime, String lmTrackingNo) {
+    public static String getRePrintOrderAsString(String lmTrackingNo) {
 
-        List<RePrintOrderInfo> orders = getRePrintOrders(cookies, begTime, endTime, lmTrackingNo);
+        List<RePrintOrderInfo> orders = getRePrintOrders(lmTrackingNo);
 
         if (orders == null) {
-            return "Parameters invalid!\nPlease check again.";
+            return "Invalid LM Tracking Number.";
         } else if (orders.isEmpty()) {
             return "No Re-print Order in same task.";
         }

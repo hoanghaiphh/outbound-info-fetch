@@ -13,24 +13,28 @@ import static excel.ExcelHelper.getStatusCounts;
 
 public class ReportImgGenerator {
 
-    private static final int IMAGE_WIDTH = 500;
+    private static final int IMAGE_WIDTH = 690;
     private static final int ROW_HEIGHT = 30;
     private static final int PADDING = 40;
 
     private static final int COL_STATUS_X = PADDING;
-    private static final int COL_VNDB_RIGHT_X = 320;
-    private static final int COL_VNDL_RIGHT_X = 460;
+    private static final int COL_VNDB_SPX_RIGHT_X = 300;
+    private static final int COL_VNDB_GHN_RIGHT_X = 400;
+    private static final int COL_VNDL_SPX_RIGHT_X = 550;
+    private static final int COL_VNDL_GHN_RIGHT_X = 650;
 
     private static final Color BG_COLOR = new Color(30, 30, 30);
     private static final Color LINE_COLOR = new Color(70, 70, 70);
-    private static final Color COLOR_VNDB = new Color(255, 99, 71);
-    private static final Color COLOR_VNDL = new Color(50, 205, 50);
+    private static final Color COLOR_VNDB = new Color(255, 99, 71); // Red
+    private static final Color COLOR_VNDL = new Color(50, 205, 50); // Green
     private static final Color COLOR_ACTIVE_STATUS = new Color(0, 191, 255);
     private static final Color COLOR_NORMAL_STATUS = new Color(200, 200, 200);
 
     public static String createReportImage(String parentDir, int... speedList) {
-        Map<String, Integer> countsVNDB = getStatusCounts("VNDB", parentDir);
-        Map<String, Integer> countsVNDL = getStatusCounts("VNDL", parentDir);
+        Map<String, Integer> countsVNDB_SPX = getStatusCounts("VNDB", parentDir, "SPX Express");
+        Map<String, Integer> countsVNDB_GHN = getStatusCounts("VNDB", parentDir, "GHN - Hàng Cồng Kềnh");
+        Map<String, Integer> countsVNDL_SPX = getStatusCounts("VNDL", parentDir, "SPX Express");
+        Map<String, Integer> countsVNDL_GHN = getStatusCounts("VNDL", parentDir, "GHN - Hàng Cồng Kềnh");
 
         // 1. Tính toán kích thước ảnh trước
         int imageHeight = PADDING * 2 + 50 + (STATUS_LIST.size() * ROW_HEIGHT) + 30;
@@ -45,17 +49,17 @@ public class ReportImgGenerator {
 
             int currentY = PADDING + 20;
 
-            // 3. Vẽ Tiêu đề
+            // 3. Vẽ Tiêu đề (4 cột dữ liệu mới)
             drawHeader(g2d, metrics, currentY);
             currentY = drawHorizontalLine(g2d, currentY + 12);
 
-            // 4. Vẽ Dữ liệu & Tính tổng tích hợp
-            int[] totals = drawDataRows(g2d, metrics, currentY, countsVNDB, countsVNDL, speedList);
-            currentY += (STATUS_LIST.size() * ROW_HEIGHT); // Cập nhật Y sau khi vẽ xong toàn bộ các hàng data
+            // 4. Vẽ Dữ liệu & Tính tổng tích hợp cho 4 cột
+            int[] totals = drawDataRows(g2d, metrics, currentY, countsVNDB_SPX, countsVNDB_GHN, countsVNDL_SPX, countsVNDL_GHN, speedList);
+            currentY += (STATUS_LIST.size() * ROW_HEIGHT);
 
             // 5. Vẽ Phần tổng số
             currentY = drawHorizontalLine(g2d, currentY + 15);
-            drawFooter(g2d, metrics, currentY + 25, totals[0], totals[1]);
+            drawFooter(g2d, metrics, currentY + 25, totals[0], totals[1], totals[2], totals[3]);
 
             g2d.dispose();
 
@@ -77,19 +81,20 @@ public class ReportImgGenerator {
 
         try {
             InputStream fontStream = ReportImgGenerator.class.getResourceAsStream("/fonts/FiraCode-Medium.ttf");
-            Font jetbrainsFont = Font.createFont(Font.TRUETYPE_FONT, fontStream).deriveFont(16f);
+            Font jetbrainsFont = Font.createFont(Font.TRUETYPE_FONT, fontStream).deriveFont(15f);
             g2d.setFont(jetbrainsFont);
         } catch (Exception e) {
-            e.printStackTrace();
-            g2d.setFont(new Font("Monospaced", Font.PLAIN, 16));
+            g2d.setFont(new Font("Monospaced", Font.PLAIN, 15));
         }
     }
 
     private static void drawHeader(Graphics2D g2d, FontMetrics metrics, int y) {
         g2d.setColor(Color.WHITE);
         g2d.drawString("STATUS", COL_STATUS_X, y);
-        g2d.drawString("VNDB", COL_VNDB_RIGHT_X - metrics.stringWidth("VNDB"), y);
-        g2d.drawString("VNDL", COL_VNDL_RIGHT_X - metrics.stringWidth("VNDL"), y);
+        g2d.drawString("VNDB-SPX", COL_VNDB_SPX_RIGHT_X - metrics.stringWidth("VNDB-SPX"), y);
+        g2d.drawString("VNDB-GHN", COL_VNDB_GHN_RIGHT_X - metrics.stringWidth("VNDB-GHN"), y);
+        g2d.drawString("VNDL-SPX", COL_VNDL_SPX_RIGHT_X - metrics.stringWidth("VNDL-SPX"), y);
+        g2d.drawString("VNDL-GHN", COL_VNDL_GHN_RIGHT_X - metrics.stringWidth("VNDL-GHN"), y);
     }
 
     private static int drawHorizontalLine(Graphics2D g2d, int y) {
@@ -99,88 +104,97 @@ public class ReportImgGenerator {
     }
 
     private static int[] drawDataRows(Graphics2D g2d, FontMetrics metrics, int startY,
-                                      Map<String, Integer> countsVNDB, Map<String, Integer> countsVNDL,
+                                      Map<String, Integer> countsVNDB_SPX, Map<String, Integer> countsVNDB_GHN,
+                                      Map<String, Integer> countsVNDL_SPX, Map<String, Integer> countsVNDL_GHN,
                                       int... speedList) {
-        int totalVNDB = 0;
-        int totalVNDL = 0;
+        int totalVNDB_SPX = 0;
+        int totalVNDB_GHN = 0;
+        int totalVNDL_SPX = 0;
+        int totalVNDL_GHN = 0;
         int localY = startY;
 
         for (String status : STATUS_LIST) {
             localY += ROW_HEIGHT;
 
-            int valVNDB = countsVNDB.getOrDefault(status, 0);
-            int valVNDL = countsVNDL.getOrDefault(status, 0);
+            int valB_SPX = countsVNDB_SPX.getOrDefault(status, 0);
+            int valB_GHN = countsVNDB_GHN.getOrDefault(status, 0);
+            int valL_SPX = countsVNDL_SPX.getOrDefault(status, 0);
+            int valL_GHN = countsVNDL_GHN.getOrDefault(status, 0);
 
             if (!"Cancel".equals(status)) {
-                totalVNDB += valVNDB;
-                totalVNDL += valVNDL;
+                totalVNDB_SPX += valB_SPX;
+                totalVNDB_GHN += valB_GHN;
+                totalVNDL_SPX += valL_SPX;
+                totalVNDL_GHN += valL_GHN;
             }
 
             // 1. Vẽ cột Status
             g2d.setColor(HIGHLIGHT_STATUSES.contains(status) ? COLOR_ACTIVE_STATUS : COLOR_NORMAL_STATUS);
             g2d.drawString(status, COL_STATUS_X, localY);
 
-            String speedB = "";
-            String speedL = "";
+            String speedB_SPX = "", speedB_GHN = "", speedL_SPX = "", speedL_GHN = "";
 
-            if (speedList != null && speedList.length >= 6) {
+            // Xử lý 12 phần tử speedList cho 4 cột (mỗi cột 3 trạng thái: Created, Picked, Packed)
+            if (speedList != null && speedList.length >= 12) {
                 if ("Created".equals(status)) {
-                    speedB = (speedList[0] == 0) ? "" : "(+" + speedList[0] + ") ";
-                    speedL = (speedList[1] == 0) ? "" : "(+" + speedList[1] + ") ";
+                    speedB_SPX = (speedList[0] == 0) ? "" : "(+" + speedList[0] + ") ";
+                    speedB_GHN = (speedList[3] == 0) ? "" : "(+" + speedList[3] + ") ";
+                    speedL_SPX = (speedList[6] == 0) ? "" : "(+" + speedList[6] + ") ";
+                    speedL_GHN = (speedList[9] == 0) ? "" : "(+" + speedList[9] + ") ";
                 } else if ("Picked".equals(status)) {
-                    speedB = (speedList[2] == 0) ? "" : "(+" + speedList[2] + ") ";
-                    speedL = (speedList[3] == 0) ? "" : "(+" + speedList[3] + ") ";
+                    speedB_SPX = (speedList[1] == 0) ? "" : "(+" + speedList[1] + ") ";
+                    speedB_GHN = (speedList[4] == 0) ? "" : "(+" + speedList[4] + ") ";
+                    speedL_SPX = (speedList[7] == 0) ? "" : "(+" + speedList[7] + ") ";
+                    speedL_GHN = (speedList[10] == 0) ? "" : "(+" + speedList[10] + ") ";
                 } else if ("Packed".equals(status)) {
-                    speedB = (speedList[4] == 0) ? "" : "(+" + speedList[4] + ") ";
-                    speedL = (speedList[5] == 0) ? "" : "(+" + speedList[5] + ") ";
+                    speedB_SPX = (speedList[2] == 0) ? "" : "(+" + speedList[2] + ") ";
+                    speedB_GHN = (speedList[5] == 0) ? "" : "(+" + speedList[5] + ") ";
+                    speedL_SPX = (speedList[8] == 0) ? "" : "(+" + speedList[8] + ") ";
+                    speedL_GHN = (speedList[11] == 0) ? "" : "(+" + speedList[11] + ") ";
                 }
             }
 
-            // 2. Vẽ cột VNDB
-            String strVndb = String.format("%,d", valVNDB);
-            int strVndbWidth = metrics.stringWidth(strVndb);
-            int numX_VNDB = COL_VNDB_RIGHT_X - strVndbWidth;
-
-            // Vẽ con số VNDB (Màu chính)
-            g2d.setColor(COLOR_VNDB);
-            g2d.drawString(strVndb, numX_VNDB, localY);
-
-            // Vẽ speedB màu vàng (đặt phía trước con số)
-            if (!speedB.isEmpty()) {
-                g2d.setColor(Color.YELLOW);
-                int speedBWidth = metrics.stringWidth(speedB);
-                g2d.drawString(speedB, numX_VNDB - speedBWidth, localY);
-            }
-
-            // 3. Vẽ cột VNDL
-            String strVndl = String.format("%,d", valVNDL);
-            int strVndlWidth = metrics.stringWidth(strVndl);
-            int numX_VNDL = COL_VNDL_RIGHT_X - strVndlWidth;
-
-            // Vẽ con số VNDL (Màu chính)
-            g2d.setColor(COLOR_VNDL);
-            g2d.drawString(strVndl, numX_VNDL, localY);
-
-            // Vẽ speedL màu vàng (đặt phía trước con số)
-            if (!speedL.isEmpty()) {
-                g2d.setColor(Color.YELLOW);
-                int speedLWidth = metrics.stringWidth(speedL);
-                g2d.drawString(speedL, numX_VNDL - speedLWidth, localY);
-            }
+            // 2. Vẽ 4 cột dữ liệu (VNDB dùng COLOR_VNDB, VNDL dùng COLOR_VNDL)
+            drawCell(g2d, metrics, valB_SPX, speedB_SPX, COL_VNDB_SPX_RIGHT_X, localY, COLOR_VNDB);
+            drawCell(g2d, metrics, valB_GHN, speedB_GHN, COL_VNDB_GHN_RIGHT_X, localY, COLOR_VNDB);
+            drawCell(g2d, metrics, valL_SPX, speedL_SPX, COL_VNDL_SPX_RIGHT_X, localY, COLOR_VNDL);
+            drawCell(g2d, metrics, valL_GHN, speedL_GHN, COL_VNDL_GHN_RIGHT_X, localY, COLOR_VNDL);
         }
 
-        return new int[]{totalVNDB, totalVNDL};
+        return new int[]{totalVNDB_SPX, totalVNDB_GHN, totalVNDL_SPX, totalVNDL_GHN};
     }
 
-    private static void drawFooter(Graphics2D g2d, FontMetrics metrics, int y, int totalVNDB, int totalVNDL) {
+    private static void drawCell(Graphics2D g2d, FontMetrics metrics, int value, String speed, int rightX, int y, Color mainColor) {
+        String strVal = String.format("%,d", value);
+        int valWidth = metrics.stringWidth(strVal);
+        int numX = rightX - valWidth;
+
+        // Vẽ con số chính
+        g2d.setColor(mainColor);
+        g2d.drawString(strVal, numX, y);
+
+        // Vẽ speed màu vàng đặt phía trước con số
+        if (!speed.isEmpty()) {
+            g2d.setColor(Color.YELLOW);
+            int speedWidth = metrics.stringWidth(speed);
+            g2d.drawString(speed, numX - speedWidth, y);
+        }
+    }
+
+    private static void drawFooter(Graphics2D g2d, FontMetrics metrics, int y, int t1, int t2, int t3, int t4) {
         g2d.setColor(Color.YELLOW);
         g2d.drawString("TOTAL ex.Cancel", COL_STATUS_X, y);
 
-        String strTotalVndb = String.format("%,d", totalVNDB);
-        g2d.drawString(strTotalVndb, COL_VNDB_RIGHT_X - metrics.stringWidth(strTotalVndb), y);
+        drawFooterVal(g2d, metrics, t1, COL_VNDB_SPX_RIGHT_X, y);
+        drawFooterVal(g2d, metrics, t2, COL_VNDB_GHN_RIGHT_X, y);
+        drawFooterVal(g2d, metrics, t3, COL_VNDL_SPX_RIGHT_X, y);
+        drawFooterVal(g2d, metrics, t4, COL_VNDL_GHN_RIGHT_X, y);
+    }
 
-        String strTotalVndl = String.format("%,d", totalVNDL);
-        g2d.drawString(strTotalVndl, COL_VNDL_RIGHT_X - metrics.stringWidth(strTotalVndl), y);
+    private static void drawFooterVal(Graphics2D g2d, FontMetrics metrics, int value, int rightX, int y) {
+        String strVal = String.format("%,d", value);
+        g2d.setColor(Color.YELLOW);
+        g2d.drawString(strVal, rightX - metrics.stringWidth(strVal), y);
     }
 
     private static String convertToBase64(BufferedImage image) throws Exception {

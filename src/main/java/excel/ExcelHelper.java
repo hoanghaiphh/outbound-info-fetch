@@ -36,7 +36,43 @@ public class ExcelHelper {
                     .filter(p -> p.toString().endsWith(".xlsx"))
                     .forEach(file -> {
                         try {
-                            EasyExcel.read(file.toFile(), RowData.class, new ExcelDataListener(statusCounts, processedColB))
+                            EasyExcel.read(file.toFile(), RowData.class,
+                                            new ExcelDataListener(statusCounts, processedColB))
+                                    .sheet(0)
+                                    .headRowNumber(1)
+                                    .doRead();
+                        } catch (Exception e) {
+                            log.error("File reading error: {} \n {}", file.getFileName(), e.getMessage());
+                        }
+                    });
+        } catch (Exception e) {
+            log.error("Failed to read {} Reports directory! \n {}", warehouse, e.getMessage());
+        }
+
+        return statusCounts;
+    }
+
+    public static Map<String, Integer> getStatusCounts(String warehouse, String parentDir, String target3pl) {
+        Map<String, Integer> statusCounts = new HashMap<>();
+        for (String status : STATUS_LIST) {
+            statusCounts.put(status, 0);
+        }
+
+        Set<String> processedColB = new HashSet<>();
+        Path path = Paths.get(parentDir + File.separator + warehouse);
+
+        if (!Files.exists(path) || !Files.isDirectory(path)) {
+            log.error("Reports directory for {} does not exist!", warehouse);
+            return statusCounts;
+        }
+
+        try (Stream<Path> paths = Files.list(path)) {
+            paths.filter(Files::isRegularFile)
+                    .filter(p -> p.toString().endsWith(".xlsx"))
+                    .forEach(file -> {
+                        try {
+                            EasyExcel.read(file.toFile(), RowData.class,
+                                            new ExcelDataListener(statusCounts, processedColB, target3pl))
                                     .sheet(0)
                                     .headRowNumber(1)
                                     .doRead();
@@ -93,42 +129,84 @@ public class ExcelHelper {
     }
 
     public static int[] getOrders(String parentDir) {
+        Map<String, Integer> countsVNDB_SPX = getStatusCounts("VNDB", parentDir, "SPX Express");
+        Map<String, Integer> countsVNDB_GHN = getStatusCounts("VNDB", parentDir, "GHN - Hàng Cồng Kềnh");
+        Map<String, Integer> countsVNDL_SPX = getStatusCounts("VNDL", parentDir, "SPX Express");
+        Map<String, Integer> countsVNDL_GHN = getStatusCounts("VNDL", parentDir, "GHN - Hàng Cồng Kềnh");
 
-        Map<String, Integer> countsVNDB = getStatusCounts("VNDB", parentDir);
-        Map<String, Integer> countsVNDL = getStatusCounts("VNDL", parentDir);
-
-        int totalVNDB = 0;
-        int totalVNDL = 0;
-        int pickedVNDB = 0;
-        int pickedVNDL = 0;
-        int packedVNDB = 0;
-        int packedVNDL = 0;
+        int totalB_SPX = 0, pickedB_SPX = 0, packedB_SPX = 0;
+        int totalB_GHN = 0, pickedB_GHN = 0, packedB_GHN = 0;
+        int totalL_SPX = 0, pickedL_SPX = 0, packedL_SPX = 0;
+        int totalL_GHN = 0, pickedL_GHN = 0, packedL_GHN = 0;
 
         for (String status : STATUS_LIST) {
-            int valVNDB = countsVNDB.getOrDefault(status, 0);
-            int valVNDL = countsVNDL.getOrDefault(status, 0);
+            int valB_SPX = countsVNDB_SPX.getOrDefault(status, 0);
+            int valB_GHN = countsVNDB_GHN.getOrDefault(status, 0);
+            int valL_SPX = countsVNDL_SPX.getOrDefault(status, 0);
+            int valL_GHN = countsVNDL_GHN.getOrDefault(status, 0);
 
+            // VNDB - SPX
             if (!status.equals("Cancel")) {
-                totalVNDB += valVNDB;
-                totalVNDL += valVNDL;
+                totalB_SPX += valB_SPX;
+            }
+            if (isPickedStatus(status)) {
+                pickedB_SPX += valB_SPX;
+            }
+            if (isPackedStatus(status)) {
+                packedB_SPX += valB_SPX;
             }
 
-            if (status.equals("Picked") || status.equals("Pick Fail")
-                    || status.equals("Checking") || status.equals("Checked")
-                    || status.equals("Packing") || status.equals("Packed")
-                    || status.equals("Shipping") || status.equals("Outbound")) {
-
-                pickedVNDB += valVNDB;
-                pickedVNDL += valVNDL;
+            // VNDB - GHN
+            if (!status.equals("Cancel")) {
+                totalB_GHN += valB_GHN;
+            }
+            if (isPickedStatus(status)) {
+                pickedB_GHN += valB_GHN;
+            }
+            if (isPackedStatus(status)) {
+                packedB_GHN += valB_GHN;
             }
 
-            if (status.equals("Packed") || status.equals("Shipping") || status.equals("Outbound")) {
-                packedVNDB += valVNDB;
-                packedVNDL += valVNDL;
+            // VNDL - SPX
+            if (!status.equals("Cancel")) {
+                totalL_SPX += valL_SPX;
+            }
+            if (isPickedStatus(status)) {
+                pickedL_SPX += valL_SPX;
+            }
+            if (isPackedStatus(status)) {
+                packedL_SPX += valL_SPX;
+            }
+
+            // VNDL - GHN
+            if (!status.equals("Cancel")) {
+                totalL_GHN += valL_GHN;
+            }
+            if (isPickedStatus(status)) {
+                pickedL_GHN += valL_GHN;
+            }
+            if (isPackedStatus(status)) {
+                packedL_GHN += valL_GHN;
             }
         }
 
-        return new int[]{totalVNDB, totalVNDL, pickedVNDB, pickedVNDL, packedVNDB, packedVNDL};
+        return new int[]{
+                totalB_SPX, pickedB_SPX, packedB_SPX,
+                totalB_GHN, pickedB_GHN, packedB_GHN,
+                totalL_SPX, pickedL_SPX, packedL_SPX,
+                totalL_GHN, pickedL_GHN, packedL_GHN
+        };
+    }
+
+    private static boolean isPickedStatus(String status) {
+        return status.equals("Picked") || status.equals("Pick Fail")
+                || status.equals("Checking") || status.equals("Checked")
+                || status.equals("Packing") || status.equals("Packed")
+                || status.equals("Shipping") || status.equals("Outbound");
+    }
+
+    private static boolean isPackedStatus(String status) {
+        return status.equals("Packed") || status.equals("Shipping") || status.equals("Outbound");
     }
 
 }

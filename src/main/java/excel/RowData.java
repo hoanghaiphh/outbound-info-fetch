@@ -9,6 +9,9 @@ public class RowData {
     @ExcelProperty(index = 2)
     private String colC;
 
+    @ExcelProperty(index = 31)
+    private String colAF;
+
     public String getColB() {
         return colB;
     }
@@ -24,4 +27,13 @@ public class RowData {
     public void setColC(String colC) {
         this.colC = colC;
     }
+
+    public String getColAF() {
+        return colAF;
+    }
+
+    public void setColAF(String colAF) {
+        this.colAF = colAF;
+    }
+
 }

@@ -82,25 +82,38 @@ public class SeaTalkBotAuto {
 
             CompletableFuture.allOf(taskB, taskL).get(10, TimeUnit.MINUTES);
 
-            int ttVNDB = 0;
-            int ttVNDL = 0;
-            int pickVNDB = 0;
-            int pickVNDL = 0;
-            int packVNDB = 0;
-            int packVNDL = 0;
+            int ttVNDB_SPX = 0, pickVNDB_SPX = 0, packVNDB_SPX = 0;
+            int ttVNDB_GHN = 0, pickVNDB_GHN = 0, packVNDB_GHN = 0;
+            int ttVNDL_SPX = 0, pickVNDL_SPX = 0, packVNDL_SPX = 0;
+            int ttVNDL_GHN = 0, pickVNDL_GHN = 0, packVNDL_GHN = 0;
+
             currentOrders = ExcelHelper.getOrders(OUTPUT_DIR);
+
             if (previousOrders != null) {
-                ttVNDB = Math.max((currentOrders[0] - previousOrders[0]), 0);
-                ttVNDL = Math.max((currentOrders[1] - previousOrders[1]), 0);
-                pickVNDB = Math.max((currentOrders[2] - previousOrders[2]), 0);
-                pickVNDL = Math.max((currentOrders[3] - previousOrders[3]), 0);
-                packVNDB = Math.max((currentOrders[4] - previousOrders[4]), 0);
-                packVNDL = Math.max((currentOrders[5] - previousOrders[5]), 0);
+                ttVNDB_SPX   = Math.max((currentOrders[0] - previousOrders[0]), 0);
+                pickVNDB_SPX = Math.max((currentOrders[1] - previousOrders[1]), 0);
+                packVNDB_SPX = Math.max((currentOrders[2] - previousOrders[2]), 0);
+
+                ttVNDB_GHN   = Math.max((currentOrders[3] - previousOrders[3]), 0);
+                pickVNDB_GHN = Math.max((currentOrders[4] - previousOrders[4]), 0);
+                packVNDB_GHN = Math.max((currentOrders[5] - previousOrders[5]), 0);
+
+                ttVNDL_SPX   = Math.max((currentOrders[6] - previousOrders[6]), 0);
+                pickVNDL_SPX = Math.max((currentOrders[7] - previousOrders[7]), 0);
+                packVNDL_SPX = Math.max((currentOrders[8] - previousOrders[8]), 0);
+
+                ttVNDL_GHN   = Math.max((currentOrders[9] - previousOrders[9]), 0);
+                pickVNDL_GHN = Math.max((currentOrders[10] - previousOrders[10]), 0);
+                packVNDL_GHN = Math.max((currentOrders[11] - previousOrders[11]), 0);
             }
+
             previousOrders = currentOrders;
 
             String result = ReportImgGenerator.createReportImage(OUTPUT_DIR,
-                    ttVNDB, ttVNDL, pickVNDB, pickVNDL, packVNDB, packVNDL);
+                    ttVNDB_SPX, pickVNDB_SPX, packVNDB_SPX,
+                    ttVNDB_GHN, pickVNDB_GHN, packVNDB_GHN,
+                    ttVNDL_SPX, pickVNDL_SPX, packVNDL_SPX,
+                    ttVNDL_GHN, pickVNDL_GHN, packVNDL_GHN);
 
             seatalk.sendMsgToGroup(BACKUP_GROUP_ID, "From: **" + begTime + "**\n→ To: **" + endTime + "**");
             seatalk.sendImgToGroup(BACKUP_GROUP_ID, result);

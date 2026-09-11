@@ -10,10 +10,18 @@ public class ExcelDataListener implements ReadListener<RowData> {
 
     private final Map<String, Integer> sharedStatusCounts;
     private final Set<String> sharedProcessedColB;
+    private final String target3pl;
 
     public ExcelDataListener(Map<String, Integer> sharedStatusCounts, Set<String> sharedProcessedColB) {
         this.sharedStatusCounts = sharedStatusCounts;
         this.sharedProcessedColB = sharedProcessedColB;
+        this.target3pl = null;
+    }
+
+    public ExcelDataListener(Map<String, Integer> sharedStatusCounts, Set<String> sharedProcessedColB, String target3pl) {
+        this.sharedStatusCounts = sharedStatusCounts;
+        this.sharedProcessedColB = sharedProcessedColB;
+        this.target3pl = target3pl;
     }
 
     @Override
@@ -22,6 +30,13 @@ public class ExcelDataListener implements ReadListener<RowData> {
 
         String valueB = data.getColB().trim();
         if (valueB.isEmpty()) return;
+
+        if (target3pl != null) {
+            String valueAF = (data.getColAF() != null) ? data.getColAF().trim() : "";
+            if (!target3pl.equalsIgnoreCase(valueAF)) {
+                return;
+            }
+        }
 
         if (!sharedProcessedColB.contains(valueB)) {
             sharedProcessedColB.add(valueB);

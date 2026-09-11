@@ -13,15 +13,15 @@ import static excel.ExcelHelper.getStatusCounts;
 
 public class ReportImgGenerator {
 
-    private static final int IMAGE_WIDTH = 690;
+    private static final int IMAGE_WIDTH = 730;
     private static final int ROW_HEIGHT = 30;
     private static final int PADDING = 40;
 
     private static final int COL_STATUS_X = PADDING;
     private static final int COL_VNDB_SPX_RIGHT_X = 300;
-    private static final int COL_VNDB_GHN_RIGHT_X = 400;
-    private static final int COL_VNDL_SPX_RIGHT_X = 550;
-    private static final int COL_VNDL_GHN_RIGHT_X = 650;
+    private static final int COL_VNDB_GHN_RIGHT_X = 420;
+    private static final int COL_VNDL_SPX_RIGHT_X = 570;
+    private static final int COL_VNDL_GHN_RIGHT_X = 690;
 
     private static final Color BG_COLOR = new Color(30, 30, 30);
     private static final Color LINE_COLOR = new Color(70, 70, 70);

@@ -39,7 +39,7 @@ public class ReportImgGenerator {
         Map<String, Integer> countsVNDL_GHN = getStatusCounts("VNDL", parentDir, "GHN - Hàng Cồng Kềnh");
 
         // 1. Tính toán kích thước ảnh trước
-        int imageHeight = PADDING * 2 + 50 + (STATUS_LIST.size() * ROW_HEIGHT) + (ROW_HEIGHT * 3) + 30;
+        int imageHeight = PADDING * 2 + 50 + (STATUS_LIST.size() * ROW_HEIGHT) + (ROW_HEIGHT * 3) + 40;
 
         BufferedImage bufferedImage = new BufferedImage(IMAGE_WIDTH, imageHeight, BufferedImage.TYPE_INT_RGB);
         Graphics2D g2d = bufferedImage.createGraphics();
@@ -67,11 +67,13 @@ public class ReportImgGenerator {
             // 6. Vẽ 2 dòng thông tin thời gian ở dưới cùng
             currentY = currentY + 25 + ROW_HEIGHT + 60;
             g2d.setColor(Color.LIGHT_GRAY);
-            g2d.drawString("From:  " + begTime + "  → To:  " + endTime, COL_STATUS_X, currentY);
+            String timeRange = "From:  " + begTime + "  → To:  " + endTime;
+            g2d.drawString(timeRange, COL_VNDL_GHN_RIGHT_X - metrics.stringWidth(timeRange), currentY);
 
             currentY += 25;
             String currentTimeStr = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss"));
-            g2d.drawString("Generated time:  " + currentTimeStr, COL_STATUS_X, currentY);
+            String timestamp = "Generated time:  " + currentTimeStr;
+            g2d.drawString(timestamp, COL_VNDL_GHN_RIGHT_X - metrics.stringWidth(timestamp), currentY);
 
             g2d.dispose();
             return convertToBase64(bufferedImage);
@@ -80,6 +82,12 @@ public class ReportImgGenerator {
             g2d.dispose();
             throw new RuntimeException("Failed to create report!", e);
         }
+    }
+
+    public static void main(String[] args) {
+        String result = createReportImage(OUTPUT_DIR, "2026/09/08 18:00:00", "2026/09/10 18:00:00",
+                1,2,3,4,5,6,7,8,9,10,11,12);
+        System.out.println(result);
     }
 
     private static void setupGraphics(Graphics2D g2d, int imageHeight) {

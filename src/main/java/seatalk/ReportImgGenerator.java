@@ -5,6 +5,8 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import javax.imageio.ImageIO;
 import java.io.InputStream;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Base64;
 import java.util.Map;
 
@@ -30,14 +32,14 @@ public class ReportImgGenerator {
     private static final Color COLOR_ACTIVE_STATUS = new Color(0, 191, 255);
     private static final Color COLOR_NORMAL_STATUS = new Color(200, 200, 200);
 
-    public static String createReportImage(String parentDir, int... speedList) {
+    public static String createReportImage(String parentDir, String begTime, String endTime, int... speedList) {
         Map<String, Integer> countsVNDB_SPX = getStatusCounts("VNDB", parentDir, "SPX Express");
         Map<String, Integer> countsVNDB_GHN = getStatusCounts("VNDB", parentDir, "GHN - Hàng Cồng Kềnh");
         Map<String, Integer> countsVNDL_SPX = getStatusCounts("VNDL", parentDir, "SPX Express");
         Map<String, Integer> countsVNDL_GHN = getStatusCounts("VNDL", parentDir, "GHN - Hàng Cồng Kềnh");
 
         // 1. Tính toán kích thước ảnh trước
-        int imageHeight = PADDING * 2 + 50 + (STATUS_LIST.size() * ROW_HEIGHT) + ROW_HEIGHT + 30;
+        int imageHeight = PADDING * 2 + 50 + (STATUS_LIST.size() * ROW_HEIGHT) + (ROW_HEIGHT * 3) + 30;
 
         BufferedImage bufferedImage = new BufferedImage(IMAGE_WIDTH, imageHeight, BufferedImage.TYPE_INT_RGB);
         Graphics2D g2d = bufferedImage.createGraphics();
@@ -57,14 +59,21 @@ public class ReportImgGenerator {
             int[] totals = drawDataRows(g2d, metrics, currentY, countsVNDB_SPX, countsVNDB_GHN, countsVNDL_SPX, countsVNDL_GHN, speedList);
             currentY += (STATUS_LIST.size() * ROW_HEIGHT);
 
-            // 5. Vẽ Phần tổng số
+            // 5. Vẽ Phần tổng số & % packed+
             currentY = drawHorizontalLine(g2d, currentY + 15);
             drawFooter(g2d, metrics, currentY + 25, totals[0], totals[1], totals[2], totals[3]);
             drawPercentageFooter(g2d, metrics, currentY + 25 + ROW_HEIGHT, totals);
 
-            g2d.dispose();
+            // 6. Vẽ 2 dòng thông tin thời gian ở dưới cùng
+            currentY = currentY + 25 + ROW_HEIGHT + 60;
+            g2d.setColor(Color.LIGHT_GRAY);
+            g2d.drawString("From:  " + begTime + "  → To:  " + endTime, COL_STATUS_X, currentY);
 
-            // 6. Chuyển đổi Output
+            currentY += 25;
+            String currentTimeStr = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss"));
+            g2d.drawString("Generated time:  " + currentTimeStr, COL_STATUS_X, currentY);
+
+            g2d.dispose();
             return convertToBase64(bufferedImage);
 
         } catch (Exception e) {

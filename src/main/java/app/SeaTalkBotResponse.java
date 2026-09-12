@@ -239,14 +239,14 @@ public class SeaTalkBotResponse {
 
             CompletableFuture.allOf(taskB, taskL).get(10, TimeUnit.MINUTES);
 
-            String result = ReportImgGenerator.createReportImage(TMP_OUTPUT_DIR);
+            String result = ReportImgGenerator.createReportImage(TMP_OUTPUT_DIR, begTime, endTime);
 
-            seatalk.sendMsgToGroup(
+            /*seatalk.sendMsgToGroup(
                     groupId,
                     "Backlog:" +
                             "\nFrom: **" + begTime + "**" +
                             "\nTo: **" + endTime + "**",
-                    threadId);
+                    threadId);*/
 
             seatalk.sendImgToGroup(groupId, result, threadId);
 

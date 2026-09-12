@@ -37,7 +37,7 @@ public class ReportImgGenerator {
         Map<String, Integer> countsVNDL_GHN = getStatusCounts("VNDL", parentDir, "GHN - Hàng Cồng Kềnh");
 
         // 1. Tính toán kích thước ảnh trước
-        int imageHeight = PADDING * 2 + 50 + (STATUS_LIST.size() * ROW_HEIGHT) + 30;
+        int imageHeight = PADDING * 2 + 50 + (STATUS_LIST.size() * ROW_HEIGHT) + ROW_HEIGHT + 30;
 
         BufferedImage bufferedImage = new BufferedImage(IMAGE_WIDTH, imageHeight, BufferedImage.TYPE_INT_RGB);
         Graphics2D g2d = bufferedImage.createGraphics();
@@ -60,6 +60,7 @@ public class ReportImgGenerator {
             // 5. Vẽ Phần tổng số
             currentY = drawHorizontalLine(g2d, currentY + 15);
             drawFooter(g2d, metrics, currentY + 25, totals[0], totals[1], totals[2], totals[3]);
+            drawPercentageFooter(g2d, metrics, currentY + 25 + ROW_HEIGHT, totals);
 
             g2d.dispose();
 
@@ -107,10 +108,10 @@ public class ReportImgGenerator {
                                       Map<String, Integer> countsVNDB_SPX, Map<String, Integer> countsVNDB_GHN,
                                       Map<String, Integer> countsVNDL_SPX, Map<String, Integer> countsVNDL_GHN,
                                       int... speedList) {
-        int totalVNDB_SPX = 0;
-        int totalVNDB_GHN = 0;
-        int totalVNDL_SPX = 0;
-        int totalVNDL_GHN = 0;
+        int totalVNDB_SPX = 0, packedB_SPX = 0;
+        int totalVNDB_GHN = 0, packedB_GHN = 0;
+        int totalVNDL_SPX = 0, packedL_SPX = 0;
+        int totalVNDL_GHN = 0, packedL_GHN = 0;
         int localY = startY;
 
         for (String status : STATUS_LIST) {
@@ -126,6 +127,13 @@ public class ReportImgGenerator {
                 totalVNDB_GHN += valB_GHN;
                 totalVNDL_SPX += valL_SPX;
                 totalVNDL_GHN += valL_GHN;
+            }
+
+            if (status.equals("Packed") || status.equals("Shipping") || status.equals("Outbound")) {
+                packedB_SPX += valB_SPX;
+                packedB_GHN += valB_GHN;
+                packedL_SPX += valL_SPX;
+                packedL_GHN += valL_GHN;
             }
 
             // 1. Vẽ cột Status
@@ -161,7 +169,10 @@ public class ReportImgGenerator {
             drawCell(g2d, metrics, valL_GHN, speedL_GHN, COL_VNDL_GHN_RIGHT_X, localY, COLOR_VNDL);
         }
 
-        return new int[]{totalVNDB_SPX, totalVNDB_GHN, totalVNDL_SPX, totalVNDL_GHN};
+        return new int[]{
+                totalVNDB_SPX, totalVNDB_GHN, totalVNDL_SPX, totalVNDL_GHN,
+                packedB_SPX, packedB_GHN, packedL_SPX, packedL_GHN
+        };
     }
 
     private static void drawCell(Graphics2D g2d, FontMetrics metrics, int value, String speed, int rightX, int y, Color mainColor) {
@@ -194,6 +205,23 @@ public class ReportImgGenerator {
     private static void drawFooterVal(Graphics2D g2d, FontMetrics metrics, int value, int rightX, int y) {
         String strVal = String.format("%,d", value);
         g2d.setColor(Color.YELLOW);
+        g2d.drawString(strVal, rightX - metrics.stringWidth(strVal), y);
+    }
+
+    private static void drawPercentageFooter(Graphics2D g2d, FontMetrics metrics, int y, int[] data) {
+        g2d.setColor(Color.ORANGE);
+        g2d.drawString("% packed+", COL_STATUS_X, y);
+
+        drawPercentageVal(g2d, metrics, data[4], data[0], COL_VNDB_SPX_RIGHT_X, y);
+        drawPercentageVal(g2d, metrics, data[5], data[1], COL_VNDB_GHN_RIGHT_X, y);
+        drawPercentageVal(g2d, metrics, data[6], data[2], COL_VNDL_SPX_RIGHT_X, y);
+        drawPercentageVal(g2d, metrics, data[7], data[3], COL_VNDL_GHN_RIGHT_X, y);
+    }
+
+    private static void drawPercentageVal(Graphics2D g2d, FontMetrics metrics, int packed, int total, int rightX, int y) {
+        double percent = (total == 0) ? 0.0 : ((double) packed / total) * 100.0;
+        String strVal = String.format("%.2f%%", percent);
+        g2d.setColor(Color.ORANGE);
         g2d.drawString(strVal, rightX - metrics.stringWidth(strVal), y);
     }
 

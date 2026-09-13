@@ -134,7 +134,9 @@ public class SeaTalkBotResponse {
                     Map<String, Object> textObj = (Map<String, Object>) messageObj.get("text");
                     if (textObj != null && textObj.get("plain_text") != null) {
                         content = ((String) textObj.get("plain_text")).trim();
-                        content = content.replaceAll("^@[^\\s]+\\s*", "").trim();
+                        // content = content.replaceAll("^@[^\\s]+\\s*", "").trim(); // start
+                        // content = content.replaceAll("(^@[^\\s]+\\s*|\\s*@[^\\s]+$)", "").trim(); // start + end
+                        content = content.replaceAll("\\s*@[^\\s]+", "").trim(); // everywhere
                     }
                 }
                 break;

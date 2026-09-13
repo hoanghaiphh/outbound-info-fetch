@@ -211,7 +211,7 @@ public class ReportImgGenerator {
 
     private static void drawFooter(Graphics2D g2d, FontMetrics metrics, int y, int t1, int t2, int t3, int t4) {
         g2d.setColor(Color.YELLOW);
-        g2d.drawString("TOTAL (w/o.Cancel)", COL_STATUS_X, y);
+        g2d.drawString("TOTAL w/o.Cancel", COL_STATUS_X, y);
 
         drawFooterVal(g2d, metrics, t1, COL_VNDB_SPX_RIGHT_X, y);
         drawFooterVal(g2d, metrics, t2, COL_VNDB_GHN_RIGHT_X, y);
@@ -227,7 +227,7 @@ public class ReportImgGenerator {
 
     private static void drawPercentageFooter(Graphics2D g2d, FontMetrics metrics, int y, int[] data) {
         g2d.setColor(Color.ORANGE);
-        g2d.drawString("% Packed +", COL_STATUS_X, y);
+        g2d.drawString("% Packed++", COL_STATUS_X, y);
 
         drawPercentageVal(g2d, metrics, data[4], data[0], COL_VNDB_SPX_RIGHT_X, y);
         drawPercentageVal(g2d, metrics, data[5], data[1], COL_VNDB_GHN_RIGHT_X, y);

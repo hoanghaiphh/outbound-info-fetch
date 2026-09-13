@@ -1,4 +1,4 @@
-package seatalk;
+package wms;
 
 import java.util.List;
 

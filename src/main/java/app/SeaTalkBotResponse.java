@@ -1,16 +1,19 @@
 package app;
 
 import gemini.GeminiService;
+import general.AutoModeConfig;
 import general.CommonHelper;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import seatalk.ReportImgGenerator;
+import general.ReportImgGenerator;
 import seatalk.SeaTalkBotWebSocketClient;
 import seatalk.SeaTalkService;
 import wms.ApiCalling;
 import wms.CookiesConfig;
 
 import java.io.InputStream;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeParseException;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.*;
@@ -161,12 +164,14 @@ public class SeaTalkBotResponse {
 
         content = content.trim();
 
-        if (content.toLowerCase().contains("reprint")) {
-            executeRePrintCommand(content, groupId, threadId);
+        if (content.toLowerCase().contains("ask-ai")) {
+            executeAskAICommand(content, groupId, threadId);
         } else if (content.toLowerCase().contains("backlog")) {
             executeBacklogCommand(content, groupId, threadId);
-        } else if (content.toLowerCase().contains("ask-ai")) {
-            executeAskAICommand(content, groupId, threadId);
+        } else if (content.toLowerCase().contains("reprint")) {
+            executeRePrintCommand(content, groupId, threadId);
+        } else if (content.toLowerCase().contains("switch-mode")) {
+            executeSwitchAutoModeCommand(content, groupId, threadId);
         } else if (content.equalsIgnoreCase("test")) {
             seatalk.sendMsgToGroup(
                     groupId,
@@ -327,5 +332,68 @@ public class SeaTalkBotResponse {
                     seatalk.sendMsgToGroup(groupId, "[ERROR]: " + ex.getMessage(), threadId);
                     return null;
                 });
+    }
+
+    private static void executeSwitchAutoModeCommand(String cmd, String groupId, String threadId) {
+        // switch-mode --mode='1' --from='2026/07/19 18:00:00' --to='2026/07/20 18:00:00'
+
+        try {
+            Matcher matcher = ARG_PATTERN.matcher(cmd);
+
+            String mode = "";
+            String begTime = "";
+            String endTime = "";
+
+            while (matcher.find()) {
+                String key = matcher.group("key");
+                String value = matcher.group("value");
+
+                switch (key.toLowerCase()) {
+                    case "mode":
+                        mode = value;
+                        break;
+                    case "from":
+                        begTime = value;
+                        break;
+                    case "to":
+                        endTime = value;
+                        break;
+                }
+            }
+
+            if (mode.equals("1") || mode.equals("2")) {
+                AutoModeConfig.saveProperties(mode, "", "");
+                seatalk.sendMsgToGroup(groupId, "Successfully switching to mode: " + mode, threadId);
+
+            } else if (mode.equals("3")) {
+                try {
+                    LocalDateTime begLdt = LocalDateTime.parse(begTime, DATE_TIME_FORMATTER);
+                    LocalDateTime endLdt = LocalDateTime.parse(endTime, DATE_TIME_FORMATTER);
+
+                    if (endLdt.isBefore(begLdt)) {
+                        seatalk.sendMsgToGroup(
+                                groupId,
+                                "END_TIME (" + endTime + ") < BEG_TIME (" + begTime + "). Please try again!",
+                                threadId);
+                    } else {
+                        AutoModeConfig.saveProperties(mode, begTime, endTime);
+                        seatalk.sendMsgToGroup(
+                                groupId,
+                                "Successfully switching to mode: " + mode + "\nFrom: " + begTime + "\nTo: " + endTime,
+                                threadId);
+                    }
+
+                } catch (DateTimeParseException e) {
+                    seatalk.sendMsgToGroup(groupId, "Wrong format date/time!", threadId);
+                }
+
+            } else {
+                seatalk.sendMsgToGroup(groupId, "Invalid mode!", threadId);
+            }
+
+        } catch (Exception e) {
+            log.error("[CRITICAL ERROR] Unhandled exception occurred in current cycle: {}", e.getMessage());
+            e.printStackTrace();
+        }
     }
 }

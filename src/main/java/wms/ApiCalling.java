@@ -6,7 +6,6 @@ import io.restassured.config.HttpClientConfig;
 import io.restassured.config.RestAssuredConfig;
 import io.restassured.response.Response;
 import io.restassured.specification.RequestSpecification;
-import seatalk.RePrintOrderInfo;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;

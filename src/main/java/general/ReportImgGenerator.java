@@ -1,4 +1,4 @@
-package seatalk;
+package general;
 
 import java.awt.*;
 import java.awt.image.BufferedImage;
@@ -66,13 +66,19 @@ public class ReportImgGenerator {
 
             // 6. Vẽ 2 dòng thông tin thời gian ở dưới cùng
             currentY = currentY + 25 + ROW_HEIGHT + 60;
+
+            g2d.setColor(Color.CYAN);
+            String mode = AutoModeConfig.getProperty("mode");
+            g2d.drawString("Current Mode - " + mode, COL_STATUS_X, currentY);
+
             g2d.setColor(Color.LIGHT_GRAY);
             String timeRange = "From:  " + begTime + "  → To:  " + endTime;
             g2d.drawString(timeRange, COL_VNDL_GHN_RIGHT_X - metrics.stringWidth(timeRange), currentY);
 
             currentY += 25;
+
             String currentTimeStr = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss"));
-            String timestamp = "Generated time:  " + currentTimeStr;
+            String timestamp = "Generated Time:  " + currentTimeStr;
             g2d.drawString(timestamp, COL_VNDL_GHN_RIGHT_X - metrics.stringWidth(timestamp), currentY);
 
             g2d.dispose();
@@ -82,12 +88,6 @@ public class ReportImgGenerator {
             g2d.dispose();
             throw new RuntimeException("Failed to create report!", e);
         }
-    }
-
-    public static void main(String[] args) {
-        String result = createReportImage(OUTPUT_DIR, "2026/09/08 18:00:00", "2026/09/10 18:00:00",
-                1,2,3,4,5,6,7,8,9,10,11,12);
-        System.out.println(result);
     }
 
     private static void setupGraphics(Graphics2D g2d, int imageHeight) {

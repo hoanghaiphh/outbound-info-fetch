@@ -1,12 +1,13 @@
 package app;
 
 import excel.ExcelHelper;
+import general.AutoModeConfig;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import wms.CookiesConfig;
 import seatalk.SeaTalkService;
 import wms.ApiCalling;
-import seatalk.ReportImgGenerator;
+import general.ReportImgGenerator;
 import general.CommonHelper;
 
 import java.util.Map;
@@ -51,9 +52,34 @@ public class SeaTalkBotAuto {
         }
     }
 
+    private static String[] setTimeRange() {
+        try {
+            String mode = AutoModeConfig.getProperty("mode");
+            if (mode == null) {
+                AutoModeConfig.saveProperties("2", "", "");
+                return CommonHelper.getWorkingTimeRange(false);
+            }
+
+            return switch (mode) {
+                case "1" -> CommonHelper.getWorkingTimeRange(true);
+                case "2" -> CommonHelper.getWorkingTimeRange(false);
+                case "3" -> {
+                    String begTime = AutoModeConfig.getProperty("from");
+                    String endTime = AutoModeConfig.getProperty("to");
+                    yield new String[]{begTime, endTime};
+                }
+                default -> CommonHelper.getWorkingTimeRange(false);
+            };
+        } catch (Exception e) {
+            log.error("Error occurred while setting time range, falling back to default: {}", e.getMessage(), e);
+            AutoModeConfig.saveProperties("2", "", "");
+            return CommonHelper.getWorkingTimeRange(false);
+        }
+    }
+
     private static void mainRun() {
         try {
-            String[] timeRange = CommonHelper.getWorkingTimeRange(false); // todo: ???
+            String[] timeRange = setTimeRange();
             String begTime = timeRange[0];
             String endTime = timeRange[1];
 
@@ -90,19 +116,19 @@ public class SeaTalkBotAuto {
             currentOrders = ExcelHelper.getOrders(OUTPUT_DIR);
 
             if (previousOrders != null) {
-                ttVNDB_SPX   = Math.max((currentOrders[0] - previousOrders[0]), 0);
+                ttVNDB_SPX = Math.max((currentOrders[0] - previousOrders[0]), 0);
                 pickVNDB_SPX = Math.max((currentOrders[1] - previousOrders[1]), 0);
                 packVNDB_SPX = Math.max((currentOrders[2] - previousOrders[2]), 0);
 
-                ttVNDB_GHN   = Math.max((currentOrders[3] - previousOrders[3]), 0);
+                ttVNDB_GHN = Math.max((currentOrders[3] - previousOrders[3]), 0);
                 pickVNDB_GHN = Math.max((currentOrders[4] - previousOrders[4]), 0);
                 packVNDB_GHN = Math.max((currentOrders[5] - previousOrders[5]), 0);
 
-                ttVNDL_SPX   = Math.max((currentOrders[6] - previousOrders[6]), 0);
+                ttVNDL_SPX = Math.max((currentOrders[6] - previousOrders[6]), 0);
                 pickVNDL_SPX = Math.max((currentOrders[7] - previousOrders[7]), 0);
                 packVNDL_SPX = Math.max((currentOrders[8] - previousOrders[8]), 0);
 
-                ttVNDL_GHN   = Math.max((currentOrders[9] - previousOrders[9]), 0);
+                ttVNDL_GHN = Math.max((currentOrders[9] - previousOrders[9]), 0);
                 pickVNDL_GHN = Math.max((currentOrders[10] - previousOrders[10]), 0);
                 packVNDL_GHN = Math.max((currentOrders[11] - previousOrders[11]), 0);
             }

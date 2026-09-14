@@ -157,6 +157,23 @@ public class ReportImgGenerator {
             g2d.setColor(HIGHLIGHT_STATUSES.contains(status) ? COLOR_ACTIVE_STATUS : COLOR_NORMAL_STATUS);
             g2d.drawString(status, COL_STATUS_X, localY);
 
+            String pickers = "", packers = "";
+
+            if (speedList != null && speedList.length >= 16) {
+                pickers = " " + speedList[12] + "|" + speedList[14];
+                packers = " " + speedList[13] + "|" + speedList[15];
+            }
+
+            if ("Picking".equals(status)) {
+                int statusWidth = metrics.stringWidth(status);
+                g2d.setColor(Color.ORANGE);
+                g2d.drawString(pickers, COL_STATUS_X + statusWidth, localY);
+            } else if ("Packing".equals(status)) {
+                int statusWidth = metrics.stringWidth(status);
+                g2d.setColor(Color.ORANGE);
+                g2d.drawString(packers, COL_STATUS_X + statusWidth, localY);
+            }
+
             String speedB_SPX = "", speedB_GHN = "", speedL_SPX = "", speedL_GHN = "";
 
             // Xử lý 12 phần tử speedList cho 4 cột (mỗi cột 3 trạng thái: Created, Picked, Packed)

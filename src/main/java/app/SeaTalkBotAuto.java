@@ -135,11 +135,15 @@ public class SeaTalkBotAuto {
 
             previousOrders = currentOrders;
 
+            int[] staffB = ApiCalling.countPickerPacker("VNDB");
+            int[] staffL = ApiCalling.countPickerPacker("VNDL");
+
             String result = ReportImgGenerator.createReportImage(OUTPUT_DIR, begTime, endTime,
                     ttVNDB_SPX, pickVNDB_SPX, packVNDB_SPX,
                     ttVNDB_GHN, pickVNDB_GHN, packVNDB_GHN,
                     ttVNDL_SPX, pickVNDL_SPX, packVNDL_SPX,
-                    ttVNDL_GHN, pickVNDL_GHN, packVNDL_GHN);
+                    ttVNDL_GHN, pickVNDL_GHN, packVNDL_GHN,
+                    staffB[0], staffB[1], staffL[0], staffL[1]);
 
             // seatalk.sendMsgToGroup(BACKUP_GROUP_ID, "From: **" + begTime + "**\n→ To: **" + endTime + "**");
             seatalk.sendImgToGroup(BACKUP_GROUP_ID, result);

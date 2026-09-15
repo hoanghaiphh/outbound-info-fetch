@@ -52,7 +52,7 @@ public class ApiCalling {
             Response response = requestSupplier.get();
             if (response.getStatusCode() == 429 && retryCount < maxRetries) {
                 retryCount++;
-                log.warn("Received 429 (Too Many Requests). Retrying in 10 seconds (Attempt {}/{})...",
+                log.warn("Received 429 (Too Many Requests). Retrying (Attempt {}/{})...",
                         retryCount, maxRetries);
                 try {
                     Thread.sleep(3000);

@@ -164,27 +164,20 @@ public class SeaTalkBotResponse {
     private static void executeCommand(String seatalkId, String content, String groupId, String threadId) {
         if (seatalkId == null) return;
 
-        try {
-            content = content.trim();
+        content = content.trim();
 
-            if (content.toLowerCase().contains("ask-ai")) {
-                executeAskAICommand(content, groupId, threadId);
-            } else if (content.toLowerCase().contains("backlog")) {
-                executeBacklogCommand(content, groupId, threadId);
-            } else if (content.toLowerCase().contains("reprint")) {
-                executeRePrintCommand(content, groupId, threadId);
-            } else if (content.toLowerCase().contains("switch-mode")) {
-                executeSwitchAutoModeCommand(content, groupId, threadId);
-            } else {
-                seatalk.sendMsgToGroup(
-                        groupId,
-                        "Don't ask us why we're taking such risks. Life often requires some excitement, joy, and anticipation.",
-                        threadId);
-            }
-        } catch (Exception e) {
+        if (content.toLowerCase().contains("ask-ai")) {
+            executeAskAICommand(content, groupId, threadId);
+        } else if (content.toLowerCase().contains("backlog")) {
+            executeBacklogCommand(content, groupId, threadId);
+        } else if (content.toLowerCase().contains("reprint")) {
+            executeRePrintCommand(content, groupId, threadId);
+        } else if (content.toLowerCase().contains("switch-mode")) {
+            executeSwitchAutoModeCommand(content, groupId, threadId);
+        } else {
             seatalk.sendMsgToGroup(
                     groupId,
-                    e.getMessage() + "\nServer busy at the moment!\nPlease try again.",
+                    "Don't ask us why we're taking such risks. Life often requires some excitement, joy, and anticipation.",
                     threadId);
         }
     }

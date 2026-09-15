@@ -6,6 +6,8 @@ import io.restassured.config.HttpClientConfig;
 import io.restassured.config.RestAssuredConfig;
 import io.restassured.response.Response;
 import io.restassured.specification.RequestSpecification;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
@@ -16,12 +18,15 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.*;
+import java.util.function.Supplier;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 import static general.GlobalConstants.*;
 
 public class ApiCalling {
+
+    private static final Logger log = LogManager.getLogger(ApiCalling.class);
 
     private static final String BASE_URL = "https://wms.ssc.shopee.vn";
 
@@ -37,6 +42,28 @@ public class ApiCalling {
                 .config(REST_ASSURED_CONFIG)
                 .baseUri(BASE_URL)
                 .cookies(cookies);
+    }
+
+    private static Response executeWithRetry(Supplier<Response> requestSupplier) {
+        int maxRetries = 3;
+        int retryCount = 0;
+
+        while (true) {
+            Response response = requestSupplier.get();
+            if (response.getStatusCode() == 429 && retryCount < maxRetries) {
+                retryCount++;
+                log.warn("Received 429 (Too Many Requests). Retrying in 10 seconds (Attempt {}/{})...",
+                        retryCount, maxRetries);
+                try {
+                    Thread.sleep(3000);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new RuntimeException("Retry wait process was interrupted", e);
+                }
+            } else {
+                return response;
+            }
+        }
     }
 
     public static void generateReportFile(String begTime, String endTime, Map<String, String> cookies) {
@@ -209,16 +236,14 @@ public class ApiCalling {
     private static List<String> getOrderListFromLMTrackingNo(Map<String, String> cookies, String lmTrackingNo) {
 
         Map<String, Object> queryParams1 = new HashMap<>();
-//        queryParams1.put("beg_ctime", begTimeEpoch);
         queryParams1.put("count", 20);
-//        queryParams1.put("end_ctime", endTimeEpoch);
         queryParams1.put("is_get_total", 0);
         queryParams1.put("pageno", 1);
         queryParams1.put("second_search_key", lmTrackingNo);
 
-        Response searchOrderResponse = requestSpec(cookies)
+        Response searchOrderResponse = executeWithRetry(() -> requestSpec(cookies)
                 .queryParams(queryParams1)
-                .get("/api/v2/apps/process/outbound/salesorder/search_order");
+                .get("/api/v2/apps/process/outbound/salesorder/search_order"));
 
         if (searchOrderResponse.getStatusCode() != 200) {
             throw new RuntimeException("Failed to search Order. API status code " + searchOrderResponse.getStatusCode());
@@ -231,9 +256,9 @@ public class ApiCalling {
 
         String orderNumber = searchOrderResponse.jsonPath().getString("data.list[0].order_number");
 
-        Response getTaskIdResponse = requestSpec(cookies)
+        Response getTaskIdResponse = executeWithRetry(() -> requestSpec(cookies)
                 .queryParam("order_number", orderNumber)
-                .get("/api/v2/apps/process/outbound/salesorder/get_order_detail");
+                .get("/api/v2/apps/process/outbound/salesorder/get_order_detail"));
 
         if (getTaskIdResponse.getStatusCode() != 200) {
             throw new RuntimeException("Failed to get Order detail. API status code " + getTaskIdResponse.getStatusCode());
@@ -247,14 +272,12 @@ public class ApiCalling {
         Map<String, Object> queryParams2 = new HashMap<>();
         queryParams2.put("is_get_total", 1);
         queryParams2.put("search_key", taskId);
-//        queryParams2.put("start_time", begTimeEpoch);
-//        queryParams2.put("end_time", endTimeEpoch);
         queryParams2.put("pageno", 1);
         queryParams2.put("count", 200);
 
-        Response searchCheckingTaskResponse = requestSpec(cookies)
+        Response searchCheckingTaskResponse = executeWithRetry(() -> requestSpec(cookies)
                 .queryParams(queryParams2)
-                .get("/api/v2/apps/process/taskcenter/checkingtask/search_checking_task");
+                .get("/api/v2/apps/process/taskcenter/checkingtask/search_checking_task"));
 
         if (searchCheckingTaskResponse.getStatusCode() != 200) {
             throw new RuntimeException("Failed to search Checking Task. API status code " + searchCheckingTaskResponse.getStatusCode());
@@ -265,9 +288,9 @@ public class ApiCalling {
     }
 
     private static Response getCheckingTaskDetail(Map<String, String> cookies, String checkingTaskId) {
-        Response response = requestSpec(cookies)
+        Response response = executeWithRetry(() -> requestSpec(cookies)
                 .queryParam("task_number", checkingTaskId)
-                .get("/api/v2/apps/process/taskcenter/checkingtask/get_checking_task_detail");
+                .get("/api/v2/apps/process/taskcenter/checkingtask/get_checking_task_detail"));
 
         if (response.getStatusCode() != 200) {
             throw new RuntimeException("Failed to get Checking Task Detail. API status code " + response.getStatusCode());

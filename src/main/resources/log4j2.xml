@@ -2,28 +2,18 @@
 <Configuration status="WARN">
     <Properties>
         <Property name="random">$${date:dd-MM-YYYY_HH-mm-ss}</Property>
-        <Property name="pattern">[%d{dd-MM-YYYY HH:mm:ss.SSS} %level %logger{36}] - %msg%n</Property>
+        <Property name="pattern">%highlight{[%d{dd-MM-YYYY HH:mm:ss} %level %logger{36}] - %msg%n}{FATAL=red, ERROR=red, WARN=yellow, INFO=normal, DEBUG=cyan, TRACE=blue}</Property>
     </Properties>
 
     <Appenders>
         <Console name="Console" target="SYSTEM_OUT">
             <PatternLayout pattern="${pattern}" />
         </Console>
-
-        <!--        <File name="FixedFile" fileName="logs/Fixed.log" append="true">-->
-        <!--            <PatternLayout pattern="${pattern}" />-->
-        <!--        </File>-->
-
-        <!--        <File name="RandomFile" fileName="logs/Random_${random}.log" immediateFlush="false" append="true">-->
-        <!--            <PatternLayout pattern="${pattern}" />-->
-        <!--        </File>-->
     </Appenders>
 
     <Loggers>
         <Root level="info">
             <AppenderRef ref="Console"/>
-            <!--            <AppenderRef ref="FixedFile"/>-->
-            <!--            <AppenderRef ref="RandomFile"/>-->
         </Root>
     </Loggers>
 </Configuration>

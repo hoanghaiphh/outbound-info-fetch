@@ -1,15 +1,16 @@
 package app;
 
+import excel.ExcelHelper;
 import gemini.GeminiService;
-import general.AutoModeConfig;
-import general.CommonHelper;
+import common.config.AutoModeConfig;
+import common.utils.CommonHelper;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import general.ReportImgGenerator;
-import seatalk.SeaTalkBotWebSocketClient;
+import common.utils.ReportImgGenerator;
+import seatalk.SeaTalkWSClient;
 import seatalk.SeaTalkService;
-import wms.ApiCalling;
-import wms.CookiesConfig;
+import wms.BacklogQuery;
+import wms.RePrintQuery;
 
 import java.io.InputStream;
 import java.time.LocalDateTime;
@@ -20,16 +21,17 @@ import java.util.concurrent.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static general.GlobalConstants.*;
+import static common.constants.GlobalConstants.*;
 
 public class SeaTalkBotResponse {
 
     private static final Logger log = LogManager.getLogger(SeaTalkBotResponse.class);
 
     private static final String CONFIG_FILE_PATH = "creds/amon.properties";
-    private static final SeaTalkService seatalk = new SeaTalkService();
-    // private static final Pattern ARG_PATTERN = Pattern.compile("--(?<key>\\w+)='(?<value>[^']*)'");
+
     private static final Pattern ARG_PATTERN = Pattern.compile("--(?<key>\\w+)\\s*=\\s*'(?<value>[^']*)'");
+
+    private static final SeaTalkService seatalk = new SeaTalkService();
 
     private static final ExecutorService executor = Executors.newFixedThreadPool(4, r -> {
         Thread t = new Thread(r);
@@ -55,7 +57,7 @@ public class SeaTalkBotResponse {
 
         log.info("Initializing WebSocket Client for App ID: {}", appId);
 
-        SeaTalkBotWebSocketClient wsClient = new SeaTalkBotWebSocketClient(
+        SeaTalkWSClient wsClient = new SeaTalkWSClient(
                 appId,
                 appSecret,
                 SeaTalkBotResponse::handleIncomingEvent
@@ -103,7 +105,6 @@ public class SeaTalkBotResponse {
             }*/
 
             case "new_mentioned_message_received_from_group_chat": {
-
                 // get Group ID
                 Object groupIdObj = eventObj.get("group_id");
                 groupId = groupIdObj != null ? String.valueOf(groupIdObj) : null;
@@ -215,17 +216,13 @@ public class SeaTalkBotResponse {
 
             seatalk.sendMsgToGroup(groupId, "Im thinking ...\nPlease wait a second ...", threadId);
 
-            Map<String, String> cookiesB = CookiesConfig.loadCookies(DEFAULT_USER, "VNDB");
-            Map<String, String> cookiesL = CookiesConfig.loadCookies(DEFAULT_USER, "VNDL");
-
             synchronized (SeaTalkBotResponse.class) {
                 CommonHelper.cleanUpDirectory(TMP_OUTPUT_DIR);
             }
 
             CompletableFuture<Void> taskB = CompletableFuture.runAsync(() -> {
                 try {
-                    ApiCalling.generateReportFile(begTimeFinal, endTimeFinal, cookiesB);
-                    ApiCalling.downloadReportFile(cookiesB, "VNDB", TMP_OUTPUT_DIR);
+                    BacklogQuery.saveBacklogToLocal("VNDB", begTimeFinal, endTimeFinal, TMP_OUTPUT_DIR);
                 } catch (Exception e) {
                     throw new CompletionException("Failed to fetch VNDB report data!", e);
                 }
@@ -233,8 +230,7 @@ public class SeaTalkBotResponse {
 
             CompletableFuture<Void> taskL = CompletableFuture.runAsync(() -> {
                 try {
-                    ApiCalling.generateReportFile(begTimeFinal, endTimeFinal, cookiesL);
-                    ApiCalling.downloadReportFile(cookiesL, "VNDL", TMP_OUTPUT_DIR);
+                    BacklogQuery.saveBacklogToLocal("VNDL", begTimeFinal, endTimeFinal, TMP_OUTPUT_DIR);
                 } catch (Exception e) {
                     throw new CompletionException("Failed to fetch VNDL report data!", e);
                 }
@@ -242,14 +238,17 @@ public class SeaTalkBotResponse {
 
             CompletableFuture.allOf(taskB, taskL).get(10, TimeUnit.MINUTES);
 
-            String result = ReportImgGenerator.createReportImage(TMP_OUTPUT_DIR, begTime, endTime);
+            Map<String, Integer> countsVNDB_SPX
+                    = ExcelHelper.getStatusCounts("VNDB", OUTPUT_DIR, "SPX Express");
+            Map<String, Integer> countsVNDB_GHN
+                    = ExcelHelper.getStatusCounts("VNDB", OUTPUT_DIR, "GHN - Hàng Cồng Kềnh");
+            Map<String, Integer> countsVNDL_SPX
+                    = ExcelHelper.getStatusCounts("VNDL", OUTPUT_DIR, "SPX Express");
+            Map<String, Integer> countsVNDL_GHN
+                    = ExcelHelper.getStatusCounts("VNDL", OUTPUT_DIR, "GHN - Hàng Cồng Kềnh");
 
-            /*seatalk.sendMsgToGroup(
-                    groupId,
-                    "Backlog:" +
-                            "\nFrom: **" + begTime + "**" +
-                            "\nTo: **" + endTime + "**",
-                    threadId);*/
+            String result = ReportImgGenerator.createReportImage(
+                    countsVNDB_SPX, countsVNDB_GHN, countsVNDL_SPX, countsVNDL_GHN, begTime, endTime);
 
             seatalk.sendImgToGroup(groupId, result, threadId);
 
@@ -293,7 +292,7 @@ public class SeaTalkBotResponse {
 
             seatalk.sendMsgToGroup(groupId, "Im thinking ...\nPlease wait a second ...", threadId);
 
-            String result = ApiCalling.getRePrintOrderAsString(lmTrackingNo);
+            String result = RePrintQuery.getRePrintOrderAsString(lmTrackingNo);
 
             seatalk.sendMsgToGroup(
                     groupId,

@@ -17,9 +17,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import seatalk.SeaTalkWsModels.*;
+import seatalk.SeaTalkWSModels.*;
 
-public class SeaTalkBotWebSocketClient implements WebSocket.Listener {
+public class SeaTalkWSClient implements WebSocket.Listener {
 
     private final Logger log = LogManager.getLogger(getClass());
 
@@ -42,13 +42,13 @@ public class SeaTalkBotWebSocketClient implements WebSocket.Listener {
 
     private final StringBuilder messageBuffer = new StringBuilder();
 
-    public SeaTalkBotWebSocketClient(String appId, String appSecret,
-                                     java.util.function.BiConsumer<String, Map<String, Object>> eventHandler) {
+    public SeaTalkWSClient(String appId, String appSecret,
+                           java.util.function.BiConsumer<String, Map<String, Object>> eventHandler) {
         this(appId, appSecret, DEFAULT_WS_URL, eventHandler);
     }
 
-    public SeaTalkBotWebSocketClient(String appId, String appSecret, String wsUrl,
-                                     java.util.function.BiConsumer<String, Map<String, Object>> eventHandler) {
+    public SeaTalkWSClient(String appId, String appSecret, String wsUrl,
+                           java.util.function.BiConsumer<String, Map<String, Object>> eventHandler) {
         this.appId = appId;
         this.appSecret = appSecret;
         this.wsUrl = wsUrl;

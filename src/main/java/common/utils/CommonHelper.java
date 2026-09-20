@@ -1,4 +1,4 @@
-package general;
+package common.utils;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -8,7 +8,7 @@ import java.time.LocalTime;
 import java.util.Comparator;
 import java.util.stream.Stream;
 
-import static general.GlobalConstants.DATE_TIME_FORMATTER;
+import static common.constants.GlobalConstants.DATE_TIME_FORMATTER;
 
 public class CommonHelper {
 

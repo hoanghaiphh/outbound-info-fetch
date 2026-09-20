@@ -1,4 +1,6 @@
-package general;
+package common.utils;
+
+import common.config.AutoModeConfig;
 
 import java.awt.*;
 import java.awt.image.BufferedImage;
@@ -10,8 +12,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.Base64;
 import java.util.Map;
 
-import static general.GlobalConstants.*;
-import static excel.ExcelHelper.getStatusCounts;
+import static common.constants.GlobalConstants.*;
 
 public class ReportImgGenerator {
 
@@ -27,44 +28,40 @@ public class ReportImgGenerator {
 
     private static final Color BG_COLOR = new Color(30, 30, 30);
     private static final Color LINE_COLOR = new Color(70, 70, 70);
-    private static final Color COLOR_VNDB = new Color(255, 99, 71); // Red
-    private static final Color COLOR_VNDL = new Color(50, 205, 50); // Green
+    private static final Color COLOR_VNDB = new Color(255, 99, 71);
+    private static final Color COLOR_VNDL = new Color(50, 205, 50);
     private static final Color COLOR_ACTIVE_STATUS = new Color(0, 191, 255);
     private static final Color COLOR_NORMAL_STATUS = new Color(200, 200, 200);
 
-    public static String createReportImage(String parentDir, String begTime, String endTime, int... speedList) {
-        Map<String, Integer> countsVNDB_SPX = getStatusCounts("VNDB", parentDir, "SPX Express");
-        Map<String, Integer> countsVNDB_GHN = getStatusCounts("VNDB", parentDir, "GHN - Hàng Cồng Kềnh");
-        Map<String, Integer> countsVNDL_SPX = getStatusCounts("VNDL", parentDir, "SPX Express");
-        Map<String, Integer> countsVNDL_GHN = getStatusCounts("VNDL", parentDir, "GHN - Hàng Cồng Kềnh");
+    public static String createReportImage(Map<String, Integer> statusVNDB_SPX, Map<String, Integer> statusVNDB_GHN,
+                                           Map<String, Integer> statusVNDL_SPX, Map<String, Integer> statusVNDL_GHN,
+                                           String begTime, String endTime, int... extraInfo) {
 
-        // 1. Tính toán kích thước ảnh trước
         int imageHeight = PADDING * 2 + 50 + (STATUS_LIST.size() * ROW_HEIGHT) + (ROW_HEIGHT * 3) + 40;
 
         BufferedImage bufferedImage = new BufferedImage(IMAGE_WIDTH, imageHeight, BufferedImage.TYPE_INT_RGB);
         Graphics2D g2d = bufferedImage.createGraphics();
 
         try {
-            // 2. Setup cấu hình chung
             setupGraphics(g2d, imageHeight);
             FontMetrics metrics = g2d.getFontMetrics();
 
             int currentY = PADDING + 20;
 
-            // 3. Vẽ Tiêu đề (4 cột dữ liệu mới)
+            // Header
             drawHeader(g2d, metrics, currentY);
             currentY = drawHorizontalLine(g2d, currentY + 12);
 
-            // 4. Vẽ Dữ liệu & Tính tổng tích hợp cho 4 cột
-            int[] totals = drawDataRows(g2d, metrics, currentY, countsVNDB_SPX, countsVNDB_GHN, countsVNDL_SPX, countsVNDL_GHN, speedList);
+            // Data
+            int[] totals = drawDataRows(g2d, metrics, currentY, statusVNDB_SPX, statusVNDB_GHN, statusVNDL_SPX, statusVNDL_GHN, extraInfo);
             currentY += (STATUS_LIST.size() * ROW_HEIGHT);
 
-            // 5. Vẽ Phần tổng số & % packed+
+            // Total & % packed++
             currentY = drawHorizontalLine(g2d, currentY + 15);
             drawFooter(g2d, metrics, currentY + 25, totals[0], totals[1], totals[2], totals[3]);
             drawPercentageFooter(g2d, metrics, currentY + 25 + ROW_HEIGHT, totals);
 
-            // 6. Vẽ 2 dòng thông tin thời gian ở dưới cùng
+            // Time range & Timestamp
             currentY = currentY + 25 + ROW_HEIGHT + 60;
 
             g2d.setColor(Color.CYAN);
@@ -153,7 +150,7 @@ public class ReportImgGenerator {
                 packedL_GHN += valL_GHN;
             }
 
-            // 1. Vẽ cột Status
+            // Status column
             g2d.setColor(HIGHLIGHT_STATUSES.contains(status) ? COLOR_ACTIVE_STATUS : COLOR_NORMAL_STATUS);
             g2d.drawString(status, COL_STATUS_X, localY);
 
@@ -164,6 +161,7 @@ public class ReportImgGenerator {
                 packers = " " + speedList[13] + "|" + speedList[15];
             }
 
+            // Staff allocation
             if ("Picking".equals(status)) {
                 int statusWidth = metrics.stringWidth(status);
                 g2d.setColor(Color.ORANGE);
@@ -176,7 +174,7 @@ public class ReportImgGenerator {
 
             String speedB_SPX = "", speedB_GHN = "", speedL_SPX = "", speedL_GHN = "";
 
-            // Xử lý 12 phần tử speedList cho 4 cột (mỗi cột 3 trạng thái: Created, Picked, Packed)
+            // Speed
             if (speedList != null && speedList.length >= 12) {
                 if ("Created".equals(status)) {
                     speedB_SPX = (speedList[0] == 0) ? "" : "(+" + speedList[0] + ") ";
@@ -196,7 +194,7 @@ public class ReportImgGenerator {
                 }
             }
 
-            // 2. Vẽ 4 cột dữ liệu (VNDB dùng COLOR_VNDB, VNDL dùng COLOR_VNDL)
+            // Data columns
             drawCell(g2d, metrics, valB_SPX, speedB_SPX, COL_VNDB_SPX_RIGHT_X, localY, COLOR_VNDB);
             drawCell(g2d, metrics, valB_GHN, speedB_GHN, COL_VNDB_GHN_RIGHT_X, localY, COLOR_VNDB);
             drawCell(g2d, metrics, valL_SPX, speedL_SPX, COL_VNDL_SPX_RIGHT_X, localY, COLOR_VNDL);
@@ -214,11 +212,11 @@ public class ReportImgGenerator {
         int valWidth = metrics.stringWidth(strVal);
         int numX = rightX - valWidth;
 
-        // Vẽ con số chính
+        // Main numbers
         g2d.setColor(mainColor);
         g2d.drawString(strVal, numX, y);
 
-        // Vẽ speed màu vàng đặt phía trước con số
+        // Speed
         if (!speed.isEmpty()) {
             g2d.setColor(Color.YELLOW);
             int speedWidth = metrics.stringWidth(speed);

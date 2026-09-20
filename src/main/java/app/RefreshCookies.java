@@ -2,14 +2,14 @@ package app;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import wms.CookiesConfig;
+import common.config.CookiesConfig;
 
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
-import static general.GlobalConstants.DEFAULT_PW;
-import static general.GlobalConstants.DEFAULT_USER;
+import static common.constants.GlobalConstants.DEFAULT_PW;
+import static common.constants.GlobalConstants.DEFAULT_USER;
 
 public class RefreshCookies {
 

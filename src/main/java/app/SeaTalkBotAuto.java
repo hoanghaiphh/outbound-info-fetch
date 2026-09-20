@@ -1,25 +1,27 @@
 package app;
 
 import excel.ExcelHelper;
-import general.AutoModeConfig;
+import common.config.AutoModeConfig;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import wms.CookiesConfig;
+import wms.AllocationQuery;
+import wms.BacklogQuery;
 import seatalk.SeaTalkService;
-import wms.ApiCalling;
-import general.ReportImgGenerator;
-import general.CommonHelper;
+import common.utils.ReportImgGenerator;
+import common.utils.CommonHelper;
 
 import java.util.Map;
 import java.util.concurrent.*;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
-import static general.GlobalConstants.*;
+import static common.constants.GlobalConstants.*;
 
 public class SeaTalkBotAuto {
 
     private static final Logger log = LogManager.getLogger(SeaTalkBotAuto.class);
 
-    private static int[] previousOrders, currentOrders;
+    private static int[] previousVNDB_SPX, previousVNDB_GHN, previousVNDL_SPX, previousVNDL_GHN;
 
     private static final SeaTalkService seatalk = new SeaTalkService();
 
@@ -77,21 +79,24 @@ public class SeaTalkBotAuto {
         }
     }
 
+    private static int[] calculateSpeed(int[] current, int[] previous) {
+        int total = Math.max((current[0] - previous[0]), 0);
+        int picked = Math.max((current[1] - previous[1]), 0);
+        int packed = Math.max((current[2] - previous[2]), 0);
+        return new int[]{total, picked, packed};
+    }
+
     private static void mainRun() {
         try {
             String[] timeRange = setTimeRange();
             String begTime = timeRange[0];
             String endTime = timeRange[1];
 
-            Map<String, String> cookiesB = CookiesConfig.loadCookies(DEFAULT_USER, "VNDB");
-            Map<String, String> cookiesL = CookiesConfig.loadCookies(DEFAULT_USER, "VNDL");
-
             CommonHelper.cleanUpDirectory(OUTPUT_DIR);
 
             CompletableFuture<Void> taskB = CompletableFuture.runAsync(() -> {
                 try {
-                    ApiCalling.generateReportFile(begTime, endTime, cookiesB);
-                    ApiCalling.downloadReportFile(cookiesB, "VNDB", OUTPUT_DIR);
+                    BacklogQuery.saveBacklogToLocal("VNDB", begTime, endTime, OUTPUT_DIR);
                 } catch (Exception e) {
                     throw new CompletionException("Failed to fetch VNDB report data!", e);
                 }
@@ -99,8 +104,7 @@ public class SeaTalkBotAuto {
 
             CompletableFuture<Void> taskL = CompletableFuture.runAsync(() -> {
                 try {
-                    ApiCalling.generateReportFile(begTime, endTime, cookiesL);
-                    ApiCalling.downloadReportFile(cookiesL, "VNDL", OUTPUT_DIR);
+                    BacklogQuery.saveBacklogToLocal("VNDL", begTime, endTime, OUTPUT_DIR);
                 } catch (Exception e) {
                     throw new CompletionException("Failed to fetch VNDL report data!", e);
                 }
@@ -108,44 +112,50 @@ public class SeaTalkBotAuto {
 
             CompletableFuture.allOf(taskB, taskL).get(10, TimeUnit.MINUTES);
 
-            int ttVNDB_SPX = 0, pickVNDB_SPX = 0, packVNDB_SPX = 0;
-            int ttVNDB_GHN = 0, pickVNDB_GHN = 0, packVNDB_GHN = 0;
-            int ttVNDL_SPX = 0, pickVNDL_SPX = 0, packVNDL_SPX = 0;
-            int ttVNDL_GHN = 0, pickVNDL_GHN = 0, packVNDL_GHN = 0;
+            Map<String, Integer> statusVNDB_SPX
+                    = ExcelHelper.getStatusCounts("VNDB", OUTPUT_DIR, "SPX Express");
+            int[] currentVNDB_SPX = ExcelHelper.getActiveStatusCounts(statusVNDB_SPX);
+            int[] speedVNDB_SPX = new int[]{0, 0, 0};
 
-            currentOrders = ExcelHelper.getOrders(OUTPUT_DIR);
+            Map<String, Integer> statusVNDB_GHN
+                    = ExcelHelper.getStatusCounts("VNDB", OUTPUT_DIR, "GHN - Hàng Cồng Kềnh");
+            int[] currentVNDB_GHN = ExcelHelper.getActiveStatusCounts(statusVNDB_GHN);
+            int[] speedVNDB_GHN = new int[]{0, 0, 0};
 
-            if (previousOrders != null) {
-                ttVNDB_SPX = Math.max((currentOrders[0] - previousOrders[0]), 0);
-                pickVNDB_SPX = Math.max((currentOrders[1] - previousOrders[1]), 0);
-                packVNDB_SPX = Math.max((currentOrders[2] - previousOrders[2]), 0);
+            Map<String, Integer> statusVNDL_SPX
+                    = ExcelHelper.getStatusCounts("VNDL", OUTPUT_DIR, "SPX Express");
+            int[] currentVNDL_SPX = ExcelHelper.getActiveStatusCounts(statusVNDL_SPX);
+            int[] speedVNDL_SPX = new int[]{0, 0, 0};
 
-                ttVNDB_GHN = Math.max((currentOrders[3] - previousOrders[3]), 0);
-                pickVNDB_GHN = Math.max((currentOrders[4] - previousOrders[4]), 0);
-                packVNDB_GHN = Math.max((currentOrders[5] - previousOrders[5]), 0);
+            Map<String, Integer> statusVNDL_GHN
+                    = ExcelHelper.getStatusCounts("VNDL", OUTPUT_DIR, "GHN - Hàng Cồng Kềnh");
+            int[] currentVNDL_GHN = ExcelHelper.getActiveStatusCounts(statusVNDL_GHN);
+            int[] speedVNDL_GHN = new int[]{0, 0, 0};
 
-                ttVNDL_SPX = Math.max((currentOrders[6] - previousOrders[6]), 0);
-                pickVNDL_SPX = Math.max((currentOrders[7] - previousOrders[7]), 0);
-                packVNDL_SPX = Math.max((currentOrders[8] - previousOrders[8]), 0);
+            if (previousVNDB_SPX != null && previousVNDB_GHN != null
+                    && previousVNDL_SPX != null && previousVNDL_GHN != null) {
 
-                ttVNDL_GHN = Math.max((currentOrders[9] - previousOrders[9]), 0);
-                pickVNDL_GHN = Math.max((currentOrders[10] - previousOrders[10]), 0);
-                packVNDL_GHN = Math.max((currentOrders[11] - previousOrders[11]), 0);
+                speedVNDB_SPX = calculateSpeed(currentVNDB_SPX, previousVNDB_SPX);
+                speedVNDB_GHN = calculateSpeed(currentVNDB_GHN, previousVNDB_GHN);
+                speedVNDL_SPX = calculateSpeed(currentVNDL_SPX, previousVNDL_SPX);
+                speedVNDL_GHN = calculateSpeed(currentVNDL_GHN, previousVNDL_GHN);
             }
 
-            previousOrders = currentOrders;
+            previousVNDB_SPX = currentVNDB_SPX;
+            previousVNDB_GHN = currentVNDB_GHN;
+            previousVNDL_SPX = currentVNDL_SPX;
+            previousVNDL_GHN = currentVNDL_GHN;
 
-            int[] staffB = ApiCalling.countPickerPacker("VNDB");
-            int[] staffL = ApiCalling.countPickerPacker("VNDL");
+            int[] staffB = AllocationQuery.countPickerPacker("VNDB");
+            int[] staffL = AllocationQuery.countPickerPacker("VNDL");
 
-            String result = ReportImgGenerator.createReportImage(OUTPUT_DIR, begTime, endTime,
-                    ttVNDB_SPX, pickVNDB_SPX, packVNDB_SPX,
-                    ttVNDB_GHN, pickVNDB_GHN, packVNDB_GHN,
-                    ttVNDL_SPX, pickVNDL_SPX, packVNDL_SPX,
-                    ttVNDL_GHN, pickVNDL_GHN, packVNDL_GHN,
-                    staffB[0], staffB[1], staffL[0], staffL[1]);
+            int[] extraInfo = Stream.of(speedVNDB_SPX, speedVNDB_GHN, speedVNDL_SPX, speedVNDL_GHN, staffB, staffL)
+                    .flatMapToInt(IntStream::of)
+                    .toArray();
 
-            // seatalk.sendMsgToGroup(BACKUP_GROUP_ID, "From: **" + begTime + "**\n→ To: **" + endTime + "**");
+            String result = ReportImgGenerator.createReportImage(
+                    statusVNDB_SPX, statusVNDB_GHN, statusVNDL_SPX, statusVNDL_GHN, begTime, endTime, extraInfo);
+
             seatalk.sendImgToGroup(BACKUP_GROUP_ID, result);
 
         } catch (TimeoutException e) {

@@ -15,7 +15,6 @@ target/
 output/
 output-tmp/
 cookies-store/
-config/
 **/creds/gemini-api-key.txt
 
 ### Eclipse ###

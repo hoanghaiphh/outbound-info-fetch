@@ -1,6 +1,6 @@
 package app;
 
-import seatalk.SeaTalkBotWebSocketClient;
+import seatalk.SeaTalkWSClient;
 
 import java.io.InputStream;
 import java.util.Properties;
@@ -25,7 +25,7 @@ public class SeaTalkBotCheck {
 
         System.out.println(">>> Initializing WebSocket Client for App ID: " + appId);
 
-        SeaTalkBotWebSocketClient client = new SeaTalkBotWebSocketClient(
+        SeaTalkWSClient client = new SeaTalkWSClient(
                 appId,
                 appSecret,
                 (eventType, eventData) -> {

@@ -240,12 +240,12 @@ public class SeaTalkBotResponse {
 
             Map<String, Integer> countsVNDB_SPX
                     = ExcelHelper.getStatusCounts("VNDB", OUTPUT_DIR, "SPX Express");
-            Map<String, Integer> countsVNDB_GHN
-                    = ExcelHelper.getStatusCounts("VNDB", OUTPUT_DIR, "GHN - Hàng Cồng Kềnh");
+            Map<String, Integer> countsVNDB_GHN = ExcelHelper.getStatusCounts("VNDB", OUTPUT_DIR,
+                    "GHN - Hàng Cồng Kềnh", "Giao Hàng Nhanh");
             Map<String, Integer> countsVNDL_SPX
                     = ExcelHelper.getStatusCounts("VNDL", OUTPUT_DIR, "SPX Express");
-            Map<String, Integer> countsVNDL_GHN
-                    = ExcelHelper.getStatusCounts("VNDL", OUTPUT_DIR, "GHN - Hàng Cồng Kềnh");
+            Map<String, Integer> countsVNDL_GHN = ExcelHelper.getStatusCounts("VNDL", OUTPUT_DIR,
+                    "GHN - Hàng Cồng Kềnh", "Giao Hàng Nhanh");
 
             String result = ReportImgGenerator.createReportImage(
                     countsVNDB_SPX, countsVNDB_GHN, countsVNDL_SPX, countsVNDL_GHN, begTime, endTime);

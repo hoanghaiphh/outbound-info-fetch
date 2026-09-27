@@ -17,7 +17,7 @@ public class ExcelHelper {
 
     private static final Logger log = LogManager.getLogger(ExcelHelper.class);
 
-    public static Map<String, Integer> getStatusCounts(String warehouse, String parentDir, String target3pl) {
+    public static Map<String, Integer> getStatusCounts(String warehouse, String parentDir, String... target3pls) {
         Map<String, Integer> statusCounts = new HashMap<>();
         for (String status : STATUS_LIST) {
             statusCounts.put(status, 0);
@@ -36,11 +36,13 @@ public class ExcelHelper {
                     .filter(p -> p.toString().endsWith(".xlsx"))
                     .forEach(file -> {
                         try {
-                            EasyExcel.read(file.toFile(), RowData.class,
-                                            new ExcelDataListener(statusCounts, processedColB, target3pl))
-                                    .sheet(0)
-                                    .headRowNumber(1)
-                                    .doRead();
+                            for (String target3pl : target3pls) {
+                                EasyExcel.read(file.toFile(), RowData.class,
+                                                new ExcelDataListener(statusCounts, processedColB, target3pl))
+                                        .sheet(0)
+                                        .headRowNumber(1)
+                                        .doRead();
+                            }
                         } catch (Exception e) {
                             log.error("File reading error: {} \n {}", file.getFileName(), e.getMessage());
                         }

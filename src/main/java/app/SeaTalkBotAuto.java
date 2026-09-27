@@ -117,8 +117,8 @@ public class SeaTalkBotAuto {
             int[] currentVNDB_SPX = ExcelHelper.getActiveStatusCounts(statusVNDB_SPX);
             int[] speedVNDB_SPX = new int[]{0, 0, 0};
 
-            Map<String, Integer> statusVNDB_GHN
-                    = ExcelHelper.getStatusCounts("VNDB", OUTPUT_DIR, "GHN - Hàng Cồng Kềnh");
+            Map<String, Integer> statusVNDB_GHN = ExcelHelper.getStatusCounts("VNDB", OUTPUT_DIR,
+                    "GHN - Hàng Cồng Kềnh", "Giao Hàng Nhanh");
             int[] currentVNDB_GHN = ExcelHelper.getActiveStatusCounts(statusVNDB_GHN);
             int[] speedVNDB_GHN = new int[]{0, 0, 0};
 
@@ -127,8 +127,8 @@ public class SeaTalkBotAuto {
             int[] currentVNDL_SPX = ExcelHelper.getActiveStatusCounts(statusVNDL_SPX);
             int[] speedVNDL_SPX = new int[]{0, 0, 0};
 
-            Map<String, Integer> statusVNDL_GHN
-                    = ExcelHelper.getStatusCounts("VNDL", OUTPUT_DIR, "GHN - Hàng Cồng Kềnh");
+            Map<String, Integer> statusVNDL_GHN = ExcelHelper.getStatusCounts("VNDL", OUTPUT_DIR,
+                    "GHN - Hàng Cồng Kềnh", "Giao Hàng Nhanh");
             int[] currentVNDL_GHN = ExcelHelper.getActiveStatusCounts(statusVNDL_GHN);
             int[] speedVNDL_GHN = new int[]{0, 0, 0};
 
